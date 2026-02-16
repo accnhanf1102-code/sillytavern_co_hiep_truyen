@@ -1192,6 +1192,22 @@ function calculateSeason(week) {
 
 // 更新场景背景（根据昼夜和季节）
 function updateSceneBackgrounds() {
+    // 地点中文名映射，用于构建URL
+    const locationZHNames = {
+        yanwuchang: '演武场',
+        cangjingge: '藏经阁',
+        huofang: '伙房',
+        houshan: '后山',
+        yishiting: '议事厅',
+        tiejiangpu: '铁匠铺',
+        nandizi: '男弟子房',
+        nvdizi: '女弟子房',
+        shanmen: '山门',
+        gongtian: '公田',
+        danfang: '丹房',
+        tianshanpai: '天山派'
+    };
+
     // 更新地图场景背景
     const mapScene = document.getElementById('map-scene');
     if (mapScene) {
@@ -1209,7 +1225,9 @@ function updateSceneBackgrounds() {
         const season = seasonMap[seasonStatus] || '冬';
         const dayNight = dayNightMap[dayNightStatus] || '昼';
 
-        mapScene.style.backgroundImage = `url('https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/天山派_${season}_${dayNight}.webp')`;
+        const bgUrl = `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/天山派_${season}_${dayNight}.webp`;
+        mapScene.style.backgroundImage = `url('${bgUrl}')`;
+        console.log(`[Background] Map Background: ${bgUrl}`);
     }
 
     // 更新其他场景背景
@@ -1219,8 +1237,10 @@ function updateSceneBackgrounds() {
     sceneNames.forEach(sceneName => {
         const scene = document.getElementById(`${sceneName}-scene`);
         if (scene) {
-            const locationName = locationNames[sceneName];
-            scene.style.backgroundImage = `url('https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/${locationName}_${dayNight}.webp')`;
+            const zhName = locationZHNames[sceneName] || sceneName;
+            const bgUrl = `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/${zhName}_${dayNight}.webp`;
+            scene.style.backgroundImage = `url('${bgUrl}')`;
+            console.log(`[Background] Scene ${sceneName} Background: ${bgUrl}`);
         }
     });
 }

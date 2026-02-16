@@ -1,0 +1,3595 @@
+<!-- /**
+ * index - SR.html - 主游戏界面（流式渲染版本）
+ * 
+ * 文件概述：
+ * 游戏的流式渲染版本入口文件，支持SillyTavern的流式更新。
+ * 使用CDN加载的CSS文件，适合在SillyTavern环境中运行。
+ * 
+ * 与 index.html 的区别：
+ * - 支持流式更新，AI回复实时呈现
+ * - CSS从CDN加载而非本地文件
+ * - 包含流式状态管理(localState)
+ * - 所有函数包裹在 DOMContentLoaded 事件中
+ * 
+ * 这些函数保留在HTML中是为了支持onclick等内联事件调用。
+ * 它们主要是对其他模块函数的封装或直接实现。
+ * 
+ * 界面切换函数：
+ * - showPlayerStats(): 显示角色属性界面
+ * - showRelationships(): 显示人际关系界面
+ * - backToMap(): 返回地图界面
+ * - goToLocation(locationId): 前往指定地点
+ * 
+ * 游戏操作函数：
+ * - skipWeek(): 跳过当前周，推进游戏时间
+ * - performAction(action, location): 执行地点行动
+ * - refreshNpcLocations(): 刷新NPC位置
+ * - sendFreeAction(): 发送自由行动内容
+ * 
+ * NPC交互函数：
+ * - sendInteraction(): 发送NPC互动内容
+ * - npcAction(npcId, action): NPC动作处理（切磋/互动）
+ * - toggleNpcVisibility(npcId): 切换NPC可见性
+ * - giveGift(npcId): 送礼功能
+ * 
+ * 战斗相关函数：
+ * - addAttack(): 消耗属性点增加攻击力
+ * - addHP(): 消耗属性点增加生命值
+ * - startBattle(): 开始战斗事件
+ * - fleeBattle(): 逃离战斗
+ * 
+ * 系统功能函数：
+ * - closeModal(): 关闭弹窗
+ * - toggleDropdown(dropdownId): 下拉菜单控制
+ * - saveGame() / loadGame(): 存档/读档
+ * - showDifficultySettings(): 难度设置
+ * - showCheatMode(): 金手指功能
+ * 
+ * 背包和交易函数：
+ * - showInventory() / showEquipment(): 显示背包/装备
+ * - showTrading(type): 显示交易界面
+ * - buyItem() / sellItem(): 买卖物品
+ * 
+ * 依赖关系：
+ * - 从CDN加载的JS模块和CSS样式
+ * - 需要在SillyTavern环境中运行以获得完整功能
+ */ -->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>类脑群侠传</title>
+
+    <!-- 从GitHub加载CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-styles.css">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-styles-theme.css" id="theme-css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="viewport-wrapper">
+            <div class="viewport" id="main-viewport">
+                <!-- 悬浮提示框 -->
+                <div class="tooltip" id="tooltip"></div>
+
+                <!-- NPC信息弹窗 -->
+                <div class="npc-info-popup" id="npc-info-popup"></div>
+
+                <!-- 地点信息弹窗 - 新增 -->
+                <div class="location-info-popup" id="location-info-popup"></div>
+                <!-- <button class="slg-return-btn" id="slg-return-btn" onclick="returnFromSLG()">返回天山派</button> -->
+                <!-- 地图场景 -->
+                <div id="map-scene" class="scene active">
+                    <div class="status-display">
+                        <div class="date-display" id="date-display">Năm 1 Tháng 1 Tuần 1</div>
+                        <div class="mood-display" id="mood-display">Điểm Hành Động: 100</div>
+                        <div class="action-points-display" id="action-points-display">行动点: 3</div>
+                    </div>
+                    <button class="refresh-npc-btn" onclick="refreshNpcLocations()">刷新NPC位置</button>
+                    <div class="location" id="yanwuchang"></div>
+                    <div class="location" id="cangjingge"></div>
+                    <div class="location" id="huofang"></div>
+                    <div class="location" id="houshan"></div>
+                    <div class="location" id="yishiting"></div>
+                    <div class="location" id="tiejiangpu"></div>
+                    <div class="location" id="nandizi"></div>
+                    <div class="location" id="nvdizi"></div>
+                    <div class="location" id="shanmen"></div>
+                    <div class="location" id="gongtian"></div>
+                    <div class="location" id="danfang"></div>
+                    <div class="ink-decoration ink1"></div>
+                    <div class="ink-decoration ink2"></div>
+                    <!-- 建筑轮廓与热区（SVG覆盖层） -->
+                    <svg id="map-hit-areas" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice"
+                        style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;"></svg>
+                </div>
+
+                <!-- 后续场景保持不变 -->
+                <!-- 角色属性场景 -->
+                <div id="player-stats-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="stats-container">
+                        <div class="stats-group">
+                            <h3>Chỉ số bẩm sinh</h3>
+                            <div class="stat-item">
+                                <span class="stat-name">Căn Cốt</span>
+                                <div class="stat-bar">
+                                    <div class="stat-fill" id="talent-gengu" style="width: 75%"></div>
+                                </div>
+                                <span class="stat-value" id="talent-gengu-value">75</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-name">Ngộ Tính</span>
+                                <div class="stat-bar">
+                                    <div class="stat-fill" id="talent-wuxing" style="width: 82%"></div>
+                                </div>
+                                <span class="stat-value" id="talent-wuxing-value">82</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-name">Tâm Tính</span>
+                                <div class="stat-bar">
+                                    <div class="stat-fill" id="talent-xinxing" style="width: 68%"></div>
+                                </div>
+                                <span class="stat-value" id="talent-xinxing-value">68</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-name">Mị Lực</span>
+                                <div class="stat-bar">
+                                    <div class="stat-fill" id="talent-meili" style="width: 70%"></div>
+                                </div>
+                                <span class="stat-value" id="talent-meili-value">70</span>
+                            </div>
+                        </div>
+
+                        <div class="bottom-stats-row">
+                            <div class="stats-group">
+                                <h3>Chỉ Số Nhân Vật</h3>
+                                <div class="simple-stat-item">
+                                    <span class="simple-stat-name">Võ Học</span>
+                                    <span class="simple-stat-value" id="stat-wuxue-value">50</span>
+                                </div>
+                                <div class="simple-stat-item">
+                                    <span class="simple-stat-name">Học Thức</span>
+                                    <span class="simple-stat-value" id="stat-xueshi-value">35</span>
+                                </div>
+                                <div class="simple-stat-item">
+                                    <span class="simple-stat-name">Danh Tiếng</span>
+                                    <span class="simple-stat-value" id="stat-shengwang-value">20</span>
+                                </div>
+                                <div class="simple-stat-item">
+                                    <span class="simple-stat-name">Tiền Bạc</span>
+                                    <span class="simple-stat-value" id="stat-jinqian-value">100</span>
+                                </div>
+                            </div>
+
+                            <div class="stats-group">
+                                <h3>Chỉ số chiến đấu</h3>
+                                <div class="simple-stat-item">
+                                    <span class="simple-stat-name">Công kích</span>
+                                    <div class="point-control">
+                                        <span class="simple-stat-value" id="combat-attack-value">20</span>
+                                        <button class="add-point-btn" id="add-attack-btn"
+                                            onclick="addAttack()">+</button>
+                                    </div>
+                                </div>
+                                <div class="simple-stat-item">
+                                    <span class="simple-stat-name">Sinh Mệnh</span>
+                                    <div class="point-control">
+                                        <span class="simple-stat-value" id="combat-hp-value">50</span>
+                                        <button class="add-point-btn" id="add-hp-btn" onclick="addHP()">+</button>
+                                    </div>
+                                </div>
+                                <div class="simple-stat-item">
+                                    <span class="simple-stat-name">Điểm còn dư</span>
+                                    <span class="simple-stat-value" id="remaining-points-value">0</span>
+                                </div>
+                                <div class="skill-list">
+                                    <div class="simple-stat-name" style="margin-bottom: 10px;">Võ công đã học</div>
+                                    <div id="learned-skills"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 人际关系场景 -->
+                <div id="relationships-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="relationships-container">
+                        <div class="relationship-grid" id="relationship-grid">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 各个场景 -->
+                <div id="yanwuchang-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Diễn Võ Trường</div>
+                    <div class="npc-container" id="yanwuchang-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('练武', 'yanwuchang')">Luyện Võ</button>
+                    </div>
+                </div>
+
+                <div id="cangjingge-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Tàng Kinh Các</div>
+                    <div class="npc-container" id="cangjingge-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('学习', 'cangjingge')">Học tập</button>
+                    </div>
+                </div>
+
+                <div id="huofang-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Phòng bếp</div>
+                    <div class="npc-container" id="huofang-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('打杂', 'huofang')">Tạp vụ</button>
+                        <button class="scene-btn" onclick="showTrading('food')">Giao dịch</button>
+                    </div>
+                </div>
+
+                <div id="houshan-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Hậu Sơn</div>
+                    <div class="npc-container" id="houshan-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('秘密赌场', 'houshan')">Sòng bạc bí mật</button>
+                        <button class="scene-btn" onclick="performAction('探索', 'houshan')">Thám hiểm</button>
+                    </div>
+                </div>
+
+                <div id="yishiting-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Nghị Sự Đường</div>
+                    <div class="npc-container" id="yishiting-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('汇报', 'yishiting')">Báo Cáo</button>
+                    </div>
+                </div>
+
+                <div id="tiejiangpu-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Lò Rèn</div>
+                    <div class="npc-container" id="tiejiangpu-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('打铁', 'tiejiangpu')">Rèn sắt</button>
+                        <button class="scene-btn" onclick="showTrading('equipment')">Giao dịch</button>
+                    </div>
+                </div>
+
+                <div id="nandizi-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Phòng Nam Đệ Tử</div>
+                    <div class="npc-container" id="nandizi-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('休息', 'nandizi')">Thăm hỏi</button>
+                    </div>
+                </div>
+
+                <div id="nvdizi-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Phòng Nữ Đệ Tử</div>
+                    <div class="npc-container" id="nvdizi-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('拜访', 'nvdizi')">Thăm hỏi</button>
+                    </div>
+                </div>
+
+                <div id="shanmen-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Cổng Sơn Môn</div>
+                    <div class="npc-container" id="shanmen-npcs"></div>
+                    <div class="scene-actions">
+                        <!-- 修改这里：从disabled改为onclick -->
+                        <button class="scene-btn" onclick="showWorldMap()">Xuống núi</button>
+                    </div>
+                </div>
+
+                <div id="gongtian-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Công Điền</div>
+                    <div class="npc-container" id="gongtian-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('耕种', 'gongtian')">Canh tác</button>
+                    </div>
+                </div>
+
+                <div id="danfang-scene" class="scene">
+                    <button class="back-btn" onclick="backToMap()">Quay Lại</button>
+                    <div class="scene-title">Đan Phòng</div>
+                    <div class="npc-container" id="danfang-npcs"></div>
+                    <div class="scene-actions">
+                        <button class="scene-btn" onclick="performAction('炼丹', 'danfang')">Luyện đan</button>
+                    </div>
+                </div>
+
+                <!-- 弹窗 -->
+                <div id="modal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-text" id="modal-text">新的一周开始了</div>
+                        <div class="modal-buttons" id="modal-buttons">
+                            <button class="modal-btn" onclick="closeModal()">确定</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 21点游戏iframe弹窗 - 新增 -->
+                <div id="blackjack-modal" class="blackjack-modal">
+                    <div class="blackjack-container">
+                        <iframe id="blackjack-iframe" class="blackjack-iframe"></iframe>
+                    </div>
+                </div>
+
+                <!-- 战斗iframe弹窗 -->
+                <div id="battle-modal" class="battle-modal">
+                    <div class="battle-container">
+                        <iframe id="battle-iframe" class="battle-iframe"></iframe>
+                    </div>
+                </div>
+
+                <!-- 农场游戏iframe弹窗 -->
+                <div id="farm-modal" class="farm-modal">
+                    <div class="farm-container">
+                        <iframe id="farm-iframe" class="farm-iframe"></iframe>
+                    </div>
+                </div>
+
+                <!-- 炼丹游戏iframe弹窗 -->
+                <div id="alchemy-modal" class="farm-modal">
+                    <div class="farm-container">
+                        <iframe id="alchemy-iframe" class="farm-iframe"></iframe>
+                    </div>
+                </div>
+
+                <!-- 世界地图iframe弹窗 - 添加在其他modal后面 -->
+                <div id="worldmap-modal" class="modal worldmap-modal"
+                    style="display: none; position: absolute; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+                    <div class="worldmap-container" style="width: 100%; height: 100%; margin: 0; position: relative;">
+                        <iframe id="worldmap-iframe" class="worldmap-iframe"
+                            style="width: 100%; height: 100%; border: none; border-radius: 10px;"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间控制按钮 -->
+        <div class="control-buttons">
+            <!-- 属性查看下拉菜单 -->
+            <div class="dropdown-wrapper">
+                <button class="control-btn dropdown-toggle" onclick="toggleDropdown('attribute-dropdown')">
+                    Xem Thuộc Tính ▲
+                </button>
+                <div id="attribute-dropdown" class="dropdown-menu">
+                    <button class="dropdown-item" onclick="showPlayerStats()">Thuộc tính nhân vật</button>
+                    <button class="dropdown-item" onclick="showRelationships()">Quan hệ nhân mạch</button>
+                    <button class="dropdown-item" onclick="showInventory()">Xem túi đồ</button>
+                    <button class="dropdown-item" onclick="showEquipment()">Xem trang bị</button>
+                </div>
+            </div>
+
+            <!-- 系统设置下拉菜单 -->
+            <div class="dropdown-wrapper">
+                <button class="control-btn dropdown-toggle" onclick="toggleDropdown('system-dropdown')">
+                    Cài đặt hệ thống ▲
+                </button>
+                <div id="system-dropdown" class="dropdown-menu">
+                    <button class="dropdown-item" id="toggle-ui-btn" onclick="toggleUIStyle()">Phong cách (Cổ
+                        phong)</button>
+                    <button class="dropdown-item" id="toggle-cg-btn" onclick="toggleCgContent()">Nội dung CG
+                        (Tắt)</button>
+                    <button class="dropdown-item" onclick="showDifficultySettings()">Thiết lập độ khó</button>
+                    <button class="dropdown-item" onclick="showCheatMode()">Cheat</button>
+                    <button class="dropdown-item" onclick="openPlayGuide()">Hướng dẫn cách chơi</button>
+                </div>
+            </div>
+
+            <!-- 新增：历史信息下拉菜单 -->
+            <div class="dropdown-wrapper">
+                <button class="control-btn dropdown-toggle" onclick="toggleDropdown('history-dropdown')">
+                    Thiết lập thông tin ▲
+                </button>
+                <div id="history-dropdown" class="dropdown-menu">
+                    <button class="dropdown-item" id="toggle-compress-summary-btn" onclick="toggleCompressSummary()">Tóm
+                        tắt chuyên sâu (Tắt)</button>
+                    <button class="dropdown-item" onclick="saveGame()">Lưu game</button>
+                    <button class="dropdown-item" onclick="loadGame()">Tải game</button>
+                    <button class="dropdown-item" onclick="showLastUserInput()">Nội dung nhập lượt trước</button>
+                    <button class="dropdown-item" onclick="showHistorySummary()">Lịch sử trò chuyện</button>
+                    <button class="dropdown-item" onclick="showFontSettings()">Cài Đặt Font Chữ</button>
+                </div>
+            </div>
+
+            <button class="control-btn" id="skip-week-btn" onclick="skipWeek()">Trôi nhanh 1 tuần</button>
+            <button class="control-btn" id="slg-return-btn" onclick="returnFromSLG()" style="display: none;">Trở về
+                Thiên Sơn Phái</button>
+        </div>
+
+        <!-- 自由行动输入框 -->
+        <div class="free-action-container">
+            <textarea class="free-action-input" id="free-action-input" placeholder="Điền nội dung vào"
+                rows="1"></textarea>
+            <button class="free-action-send-btn" id="regenerate-btn" onclick="handleRegenerate()">Trọng sinh
+                thành...</button>
+            <button class="free-action-send-btn" id="free-action-send-btn" onclick="sendFreeAction()">Gửi</button>
+        </div>
+
+        <!-- 难度设置弹窗 -->
+        <div id="difficulty-modal" class="modal viewport-overlay">
+            <div class="modal-content">
+                <h3>Thiết lập độ khó</h3>
+                <p>Chọn độ khó của trò chơi, điều này sẽ ảnh hưởng đến việc tính toán tỷ lệ thành công của các hành
+                    động:</p>
+                <label class="difficulty-option">
+                    <input type="radio" name="difficulty" value="easy" id="diff-easy">
+                    <span class="option-content">
+                        <strong>Chế độ Dễ</strong>
+                        <small>Cộng thêm +20 Thể lực, dễ dàng đạt được thành công hơn.<br>Thay đổi độ hảo cảm: Tăng
+                            +2/+4, Giảm -1/-2.</small>
+                    </span>
+                </label>
+                <label class="difficulty-option">
+                    <input type="radio" name="difficulty" value="normal" id="diff-normal" checked>
+                    <span class="option-content">
+                        <strong>Chế độ Thường</strong>
+                        <small>Cộng thêm +10 Thể lực, trải nghiệm trò chơi cân bằng.<br>Thay đổi độ hảo cảm: Biên độ lớn
+                            ±2, Bình thường ±1.</small>
+                    </span>
+                </label>
+                <label class="difficulty-option">
+                    <input type="radio" name="difficulty" value="hard" id="diff-hard">
+                    <span class="option-content">
+                        <strong>Chế độ Khó</strong>
+                        <small>Không cộng thêm Thể lực, mang tính thử thách cao hơn.<br>Thay đổi độ hảo cảm: Tăng +1/+2,
+                            Giảm -2/-4.</small>
+                    </span>
+                </label>
+                <div class="modal-buttons">
+                    <button class="modal-btn" onclick="saveDifficulty()">Xác nhận</button>
+                    <button class="modal-btn cancel" onclick="closeDifficultyModal()">Hủy bỏ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cửa sổ Kim Thủ Chỉ -->
+        <div id="cheat-modal" class="modal viewport-overlay">
+            <div class="modal-content cheat-content">
+                <h3>Cheat - Chỉnh Sửa Chỉ Số</h3>
+                <div class="cheat-sections">
+                    <!-- Thiên Phú -->
+                    <div class="cheat-section">
+                        <h4>Thiên Phú</h4>
+                        <div class="cheat-grid">
+                            <div class="cheat-item">
+                                <label>Căn Cốt</label>
+                                <input type="number" id="cheat-gengu" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Ngộ Tính</label>
+                                <input type="number" id="cheat-wuxing" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Tâm Tính</label>
+                                <input type="number" id="cheat-xinxing" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Mị Lực</label>
+                                <input type="number" id="cheat-meili" min="0" max="100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chỉ Số Nhân Vật -->
+                    <div class="cheat-section">
+                        <h4>Chỉ Số Nhân Vật</h4>
+                        <div class="cheat-grid">
+                            <div class="cheat-item">
+                                <label>Võ Học</label>
+                                <input type="number" id="cheat-wuxue" min="0" max="300">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Học Thức</label>
+                                <input type="number" id="cheat-xueshi" min="0" max="300">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Danh Tiếng</label>
+                                <input type="number" id="cheat-shengwang" min="0" max="300">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Ngân Lượng</label>
+                                <input type="number" id="cheat-jinqian" min="0" max="999999">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chỉ Số Chiến Đấu -->
+                    <div class="cheat-section">
+                        <h4>Chỉ Số Chiến Đấu</h4>
+                        <div class="cheat-grid">
+                            <div class="cheat-item">
+                                <label>Công Kích</label>
+                                <input type="number" id="cheat-attack" min="10" max="300">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Sinh Mệnh</label>
+                                <input type="number" id="cheat-hp" min="25" max="600">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chỉ Số Khác -->
+                    <div class="cheat-section">
+                        <h4>Chỉ Số Khác</h4>
+                        <div class="cheat-grid">
+                            <div class="cheat-item">
+                                <label>Thể Lực</label>
+                                <input type="number" id="cheat-mood" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Điểm Hành Động</label>
+                                <input type="number" id="cheat-actionpoints" min="0" max="3">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Tuần Hiện Tại</label>
+                                <input type="number" id="cheat-week" min="1" max="9999">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hảo Cảm Độ NPC -->
+                    <div class="cheat-section">
+                        <h4>Hảo Cảm Độ NPC</h4>
+                        <div class="cheat-grid npc-grid">
+                            <div class="cheat-item">
+                                <label>Phá Trận Tử</label>
+                                <input type="number" id="cheat-npc-A" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Động Đình Quân</label>
+                                <input type="number" id="cheat-npc-B" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Tiền Đường Quân</label>
+                                <input type="number" id="cheat-npc-C" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Tiêu Bạch Hô</label>
+                                <input type="number" id="cheat-npc-D" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Cơ Tự</label>
+                                <input type="number" id="cheat-npc-E" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Thi Diên Niên</label>
+                                <input type="number" id="cheat-npc-F" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Hô Diên Hiển</label>
+                                <input type="number" id="cheat-npc-G" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Vũ Chúc</label>
+                                <input type="number" id="cheat-npc-H" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>An Mộ</label>
+                                <input type="number" id="cheat-npc-I" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Đường Mộc Lê</label>
+                                <input type="number" id="cheat-npc-J" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Lạc Tiềm U</label>
+                                <input type="number" id="cheat-npc-K" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Tạp Dịch Bí Ẩn</label>
+                                <input type="number" id="cheat-npc-L" min="0" max="100">
+                            </div>
+                            <!-- Nhân vật mới Z - Đã chú thích
+                            <div class="cheat-item">
+                                <label>Nhân Vật Mới Z</label>
+                                <input type="number" id="cheat-npc-Z" min="0" max="100">
+                            </div>
+                            -->
+                            <div class="cheat-item">
+                                <label>Huyền Thiên Thanh</label>
+                                <input type="number" id="cheat-npc-M" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Lộc Xuân Nhược</label>
+                                <input type="number" id="cheat-npc-N" min="0" max="100">
+                            </div>
+                            <div class="cheat-item">
+                                <label>Linh Tuyết Phi</label>
+                                <input type="number" id="cheat-npc-O" min="0" max="100">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button class="modal-btn" onclick="saveCheatValues()">Lưu</button>
+                    <button class="modal-btn cancel" onclick="closeCheatModal()">Hủy</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 汗青集弹窗 -->
+        <div id="history-summary-modal" class="modal viewport-overlay">
+            <div class="modal-content" style="max-width: 90%; display: flex; flex-direction: column;">
+                <h3>汗青集</h3>
+                <div id="history-summary-content" style="
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 20px;
+                    background: #f5f5f5;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    white-space: pre-wrap;
+                    line-height: 1.8;
+                ">
+                    载入中...
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" onclick="closeHistorySummaryModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cửa sổ Túi Đồ -->
+        <div id="inventory-modal" class="modal viewport-overlay">
+            <div class="modal-content inventory-content">
+                <h3>Túi Đồ</h3>
+                <div class="inventory-grid" id="inventory-grid">
+                    <!-- Tự động tạo -->
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" onclick="closeInventoryModal()">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cửa sổ Trang Bị -->
+        <div id="equipment-modal" class="modal viewport-overlay">
+            <div class="modal-content equipment-content">
+                <h3>Trang Bị</h3>
+                <div class="equipment-slots">
+                    <div class="equipment-slot">
+                        <div class="slot-label">Vũ Khí</div>
+                        <div class="slot-item" id="weapon-slot">
+                            <div class="empty-slot">Trống</div>
+                        </div>
+                    </div>
+                    <div class="equipment-slot">
+                        <div class="slot-label">Y Phục</div>
+                        <div class="slot-item" id="armor-slot">
+                            <div class="empty-slot">Trống</div>
+                        </div>
+                    </div>
+                    <div class="equipment-slot">
+                        <div class="slot-label">Trang Sức 1</div>
+                        <div class="slot-item" id="accessory1-slot">
+                            <div class="empty-slot">Trống</div>
+                        </div>
+                    </div>
+                    <div class="equipment-slot">
+                        <div class="slot-label">Trang Sức 2</div>
+                        <div class="slot-item" id="accessory2-slot">
+                            <div class="empty-slot">Trống</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="equipment-stats">
+                    <h4>Hiệu Quả Trang Bị</h4>
+                    <div id="equipment-effect">
+                        <!-- Hiển thị hiệu quả trang bị -->
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" onclick="closeEquipmentModal()">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chi tiết vật phẩm -->
+        <div id="item-detail-modal" class="modal">
+            <div class="modal-content item-detail-content">
+                <h3 id="item-name"></h3>
+                <div class="item-description" id="item-description"></div>
+                <div class="item-info" id="item-info"></div>
+                <div class="modal-buttons" id="item-actions">
+                    <!-- Tự động tạo nút thao tác -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Cửa sổ Giao Dịch -->
+        <div id="trading-modal" class="modal viewport-overlay">
+            <div class="modal-content trading-content">
+                <div class="trading-container">
+                    <!-- Bên trái: Vật phẩm người chơi -->
+                    <div class="trading-section user-items">
+                        <h4 class="user-money-header">Ngân Lượng: <span id="trading-money-value">0</span></h4>
+                        <div class="trading-list" id="user-items-list">
+                            <!-- Tự động tạo -->
+                        </div>
+                    </div>
+
+                    <!-- Đường phân cách -->
+                    <div class="trading-divider"></div>
+
+                    <!-- Bên phải: Vật phẩm thương điếm -->
+                    <div class="trading-section shop-items">
+                        <h4 id="shop-title">Vật Phẩm Thương Điếm</h4>
+                        <div class="trading-list" id="shop-items-list">
+                            <!-- Tự động tạo -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" onclick="closeTrading()">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chi tiết hàng hóa -->
+        <div id="shop-detail-modal" class="modal">
+            <div class="modal-content shop-detail-content">
+                <h3 id="shop-item-name"></h3>
+                <div class="shop-item-description" id="shop-item-description"></div>
+                <div class="shop-item-info" id="shop-item-info"></div>
+                <div class="shop-item-price-info">
+                    <div class="price-label">Giá:</div>
+                    <div class="price-value" id="shop-item-price"></div>
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn" id="shop-buy-btn" onclick="buyItemFromDetail()">Mua</button>
+                    <button class="modal-btn cancel" onclick="closeShopDetailModal()">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 故事区域 -->
+        <div class="story-area">
+            <div class="story-content-wrapper">
+                <!-- Chỉ báo trang -->
+                <div class="page-indicator" id="page-indicator"></div>
+
+                <!-- Mũi tên chuyển trang -->
+                <button class="story-nav-btn prev" id="story-prev-btn" onclick="prevPage()">◀</button>
+                <button class="story-nav-btn next" id="story-next-btn" onclick="nextPage()">▶</button>
+
+                <!-- Nội dung câu chuyện -->
+                <div class="story-text" id="story-text">
+                    Giang hồ đường xa, câu chuyện chưa mở...
+                </div>
+
+                <!-- Nút mở rộng/thu gọn -->
+                <button class="story-expand-btn" id="story-expand-btn" onclick="toggleStoryExpand()">▼ Xem Toàn
+                    Bộ</button>
+            </div>
+
+            <!-- Container sự kiện ngẫu nhiên -->
+            <div class="random-event-container" id="random-event-container">
+                <div class="event-title">Sự Kiện Ngẫu Nhiên</div>
+                <div class="event-description" id="event-description"></div>
+                <div class="event-options" id="event-options"></div>
+            </div>
+            <!-- Container sự kiện chiến đấu -->
+            <div class="battle-event-container" id="battle-event-container">
+                <div class="battle-event-title">Sự Kiện Chiến Đấu</div>
+                <div class="battle-event-description" id="battle-event-description"></div>
+                <div class="battle-enemy-info">
+                    <div class="enemy-info-item">
+                        <span class="enemy-info-label">Địch Nhân:</span>
+                        <span id="enemy-name-display"></span>
+                    </div>
+                    <div class="enemy-info-item">
+                        <span class="enemy-info-label">Công Kích:</span>
+                        <span id="enemy-attack-display"></span>
+                    </div>
+                    <div class="enemy-info-item">
+                        <span class="enemy-info-label">Sinh Mệnh:</span>
+                        <span id="enemy-health-display"></span>
+                    </div>
+                </div>
+                <div class="battle-reward">
+                    <div class="battle-reward-text" id="battle-reward-text"></div>
+                </div>
+                <div class="battle-actions">
+                    <button class="battle-action-btn fight" onclick="startBattle()">Khai Chiến</button>
+                    <button class="battle-action-btn flee" onclick="fleeBattle()">Rút Lui</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载外部库 -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
+    <!-- 从GitHub加载游戏模块 -->
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-state.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-ui.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-helpers.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-events.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/special-event.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 记录原始渲染环境状态
+            window._originalRenderer = {
+                hasSTscript: typeof window.STscript === 'function',
+                hasTriggerSlash: typeof window.triggerSlash === 'function'
+            };
+
+            // 兼容层
+            window.triggerSlash = window.triggerSlash || window.STscript;
+            window.STscript = window.STscript || window.triggerSlash;
+
+            // 过滤thinking标签内容（鲁棒匹配：支持空格、下划线、大小写、时态变体）
+            // 流式版本：处理未闭合标签的情况
+            function removeThinkingContent(content) {
+                if (!content) return content;
+
+                let result = content;
+
+                // 步骤1: 移除所有完整的 thinking 块
+                // 循环移除，处理可能的嵌套情况
+                let prevResult;
+                do {
+                    prevResult = result;
+                    result = result.replace(
+                        /<([^>\/]+)>([\s\S]*?)<\/([^>]+)>/g,
+                        (match, openTag, inner, closeTag) => {
+                            // 标准化：移除空格、下划线，转大写
+                            const normOpen = openTag.replace(/[\s_]/g, '').toUpperCase();
+                            const normClose = closeTag.replace(/[\s_]/g, '').toUpperCase();
+                            // 开始或结束标签任一包含 ANAL 就移除整个块
+                            if (normOpen.includes('ANAL') || normClose.includes('ANAL')) {
+                                console.log('已过滤thinking块');
+                                return '';
+                            }
+                            return match;
+                        }
+                    );
+                } while (result !== prevResult);
+
+                // 步骤2: 检查未闭合的 thinking 开始标签（流式场景关键）
+                const openTagPattern = /<([^>\/]+)>/g;
+                let match;
+                let lastThinkingStart = -1;
+                while ((match = openTagPattern.exec(result)) !== null) {
+                    const normalized = match[1].replace(/[\s_]/g, '').toUpperCase();
+                    if (normalized.includes('ANAL')) {
+                        lastThinkingStart = match.index;
+                    }
+                }
+
+                // 如果找到未闭合的thinking标签，截断到该标签之前
+                if (lastThinkingStart !== -1) {
+                    console.log('检测到未闭合的thinking标签，截断内容');
+                    result = result.substring(0, lastThinkingStart);
+                }
+
+                return result.trim();
+            }
+
+            window.updateTemplateVariables = function (vars) {
+                if (!vars) return;
+
+                /* 1. 如果初始化尚未结束，先把 vars 缓存起来 —— 只保留最后一次 */
+                if (!window.__initDone) {
+                    window.__pendingTemplateVars = vars;
+                    return;
+                }
+                let hasUpdate = false;
+
+                // 新增：处理SLG_MODE内容（包括脏标签的情况）
+                let slgModeContent = null;
+
+                // 方法1：标准化属性名查找
+                for (const key in vars) {
+                    // 移除所有空格、下划线，并转为大写
+                    const normalizedKey = key.replace(/[\s_]/g, '').toUpperCase();
+                    if (normalizedKey === 'SLGMODE') {
+                        slgModeContent = vars[key];
+                        break;
+                    }
+                }
+
+                // 如果找到了SLG_MODE内容（无论标签写法如何）
+                if (slgModeContent !== null && slgModeContent !== undefined) {
+                    // 先过滤thinking标签内容
+                    slgModeContent = removeThinkingContent(slgModeContent);
+
+                    // 提取正文：从第一个汉字、# 或 * 开始到第一个<为止
+                    // 扩展的Unicode范围支持更多中文字符（包括繁体）
+                    const mainTextMatch = slgModeContent.match(/[#*\u4e00-\u9fff\u3400-\u4dbf...][^<]*/);
+                    if (mainTextMatch) {
+                        const startIndex = slgModeContent.indexOf(mainTextMatch[0]);
+                        const endIndex = slgModeContent.indexOf('<', startIndex);
+                        const mainText = endIndex > -1
+                            ? slgModeContent.substring(startIndex, endIndex)
+                            : slgModeContent.substring(startIndex);
+
+                        console.log(`成功捕捉到正文（通过汉字/#/*特征）`);
+                        console.log(`${startIndex}`);
+                        console.log(`${endIndex}`);
+                        localState.currentStoryText = mainText.trim();
+                        console.log(`${localState.currentStoryText}`);
+                        updateStoryText(localState.currentStoryText);
+                    }
+
+                    // 新增：提取SUMMARY内容
+                    // const summaryMatch = slgModeContent.match(/<SUMMARY>([\s\S]*?)<\/SUMMARY>/);
+                    if (!localState.summarySmallUpdateApplied) {
+                        const summaryRegex = /<[\s_]*[Ss][Uu][Mm][Mm][Aa][Rr][Yy][\s_]*>([\s\S]*?)<[\s_]*\/[\s_]*[Ss][Uu][Mm][Mm][Aa][Rr][Yy][\s_]*>/;
+                        const summaryMatch = slgModeContent.match(summaryRegex);
+                        if (summaryMatch && summaryMatch[1]) {
+                            const summaryContent = summaryMatch[1].trim();
+                            console.log('成功捕捉到SUMMARY内容：', summaryContent);
+
+                            const year = Math.floor((currentWeek - 1) / 48) + 1;
+                            const remainingWeeks = (currentWeek - 1) % 48;
+                            const month = Math.floor(remainingWeeks / 4) + 1;
+                            const week = remainingWeeks % 4 + 1;
+
+                            const timestamp = `[第${year}年第${month}月第${week}周]`;
+
+                            // 构建本次要添加的完整内容（用于去重检查）
+                            const contentToAdd = `${timestamp}\n${summaryContent}`;
+
+                            // 检查是否已存在相同内容（防止重新渲染时重复累加）
+                            const alreadyExists = summary_Small && summary_Small.includes(summaryContent);
+                            const alreadyExistsInWeek = summary_Week && summary_Week.includes(summaryContent);
+                            const alreadyExistsInBackup = summary_Backup && summary_Backup.includes(summaryContent);
+
+                            if (alreadyExists || alreadyExistsInWeek || alreadyExistsInBackup) {
+                                console.log('SUMMARY内容已存在，跳过重复添加');
+                            } else {
+                                if (newWeek === 1) {
+                                    if (summary_Week) {
+                                        summary_Week += `\n\n${summaryContent}`;
+                                    } else {
+                                        summary_Week = `${summaryContent}`;
+                                    }
+                                    if (summary_Small) {
+                                        summary_Backup = summary_Backup
+                                            ? `${summary_Backup}\n\n${summary_Small}`
+                                            : `${summary_Small}`;
+                                    }
+                                    summary_Small = "";
+                                } else {
+                                    if (summary_Small) {
+                                        summary_Small += `\n\n${timestamp}\n${summaryContent}`;
+                                    } else {
+                                        summary_Small = `${timestamp}\n${summaryContent}`;
+                                    }
+                                }
+                                console.log('SUMMARY已根据newWeek规则更新');
+                            }
+
+                            localState.summarySmallUpdateApplied = true;
+                        } else {
+                            // 如果没有找到SUMMARY标签，尝试更鲁棒的方法
+                            // 从第一个{符号往前找汉字，再回溯到>符号
+                            const jsonStartIndex = slgModeContent.indexOf('{');
+                            if (jsonStartIndex > -1) {
+                                // 从{往前搜索，找到可能的SUMMARY结束位置
+                                let searchStart = jsonStartIndex - 1;
+                                while (searchStart >= 0) {
+                                    const char = slgModeContent[searchStart];
+                                    // 检查是否是汉字或其他有意义的字符
+                                    if (/[\u4e00-\u9fff\u3400-\u4dbf\w]/.test(char)) {
+                                        // 找到了有意义的字符，现在向前找>符号
+                                        let summaryStartSearch = searchStart;
+                                        while (summaryStartSearch >= 0 && slgModeContent[summaryStartSearch] !== '>') {
+                                            summaryStartSearch--;
+                                        }
+
+                                        if (summaryStartSearch >= 0) {
+                                            // 找到了>符号，提取这段内容
+                                            const potentialSummary = slgModeContent.substring(summaryStartSearch + 1, searchStart + 1).trim();
+
+                                            // 检查是否包含SUMMARY相关内容
+                                            if (potentialSummary.length > 0 && !potentialSummary.includes('<MAIN_TEXT>')) {
+                                                console.log('通过鲁棒方法捕捉到可能的SUMMARY内容：', potentialSummary);
+
+                                                // 检查是否已存在相同内容（防止重新渲染时重复累加）
+                                                const alreadyExists = summary_Small && summary_Small.includes(potentialSummary);
+                                                const alreadyExistsInWeek = summary_Week && summary_Week.includes(potentialSummary);
+                                                const alreadyExistsInBackup = summary_Backup && summary_Backup.includes(potentialSummary);
+
+                                                if (alreadyExists || alreadyExistsInWeek || alreadyExistsInBackup) {
+                                                    console.log('SUMMARY内容已存在（鲁棒方法），跳过重复添加');
+                                                } else {
+                                                    const year = Math.floor((currentWeek - 1) / 48) + 1;
+                                                    const remainingWeeks = (currentWeek - 1) % 48;
+                                                    const month = Math.floor(remainingWeeks / 4) + 1;
+                                                    const week = remainingWeeks % 4 + 1;
+
+                                                    const timestamp = `[第${year}年第${month}月第${week}周]`;
+
+                                                    if (newWeek === 1) {
+                                                        if (summary_Week) {
+                                                            summary_Week += `\n\n${timestamp}\n${potentialSummary}`;
+                                                        } else {
+                                                            summary_Week = `${timestamp}\n${potentialSummary}`;
+                                                        }
+                                                        if (summary_Small) {
+                                                            summary_Backup = summary_Backup
+                                                                ? `${summary_Backup}\n\n${summary_Small}`
+                                                                : `${summary_Small}`;
+                                                        }
+                                                        summary_Small = "";
+                                                    } else {
+                                                        if (summary_Small) {
+                                                            summary_Small += `\n\n${timestamp}\n${potentialSummary}`;
+                                                        } else {
+                                                            summary_Small = `${timestamp}\n${potentialSummary}`;
+                                                        }
+                                                    }
+                                                    console.log('SUMMARY已根据newWeek规则更新（鲁棒方法）');
+                                                }
+
+                                                localState.summarySmallUpdateApplied = true;
+                                            }
+                                        }
+                                        break;
+                                    }
+                                    searchStart--;
+                                }
+                            }
+                        }
+                    }
+
+                    // 提取JSON：从第一个{开始到下一个<为止（如果没有<则到结尾）
+                    const jsonStartIndex = slgModeContent.indexOf('{');
+                    if (jsonStartIndex > -1 && !localState.turnUpdateApplied) {
+                        const jsonEndIndex = slgModeContent.indexOf('<', jsonStartIndex);
+                        const jsonText = jsonEndIndex > -1
+                            ? slgModeContent.substring(jsonStartIndex, jsonEndIndex)
+                            : slgModeContent.substring(jsonStartIndex);
+
+                        try {
+                            console.log(`成功捕捉到JSON（通过{特征）`);
+                            let llmResponse = jsonText.trim();
+                            console.log(`提取的JSON文本：${llmResponse}`);
+
+                            if (typeof llmResponse === 'string') {
+                                llmResponse = JSON.parse(llmResponse);
+                            }
+                            parseLLMResponse(llmResponse, localState.currentStoryText);
+                            hasUpdate = true;
+                        } catch (error) {
+                            console.error('解析SIDE_NOTE失败:', error);
+                        }
+                    }
+                }
+
+                // if (vars.MAIN_TEXT !== undefined) {
+                //     console.log(`成功捕捉到正文`);
+                //     localState.currentStoryText = vars.MAIN_TEXT;
+                //     updateStoryText(localState.currentStoryText);
+                //     //hasUpdate = true;
+                // }
+
+                // console.log(`vars.SIDE_NOTE为：${vars.SIDE_NOTE}`);
+                // console.log(`localState.turnUpdateApplied为：${localState.turnUpdateApplied}`);
+                // if (vars.SIDE_NOTE !== undefined && !localState.turnUpdateApplied) {
+                //     try {
+                //         console.log(`成功捕捉到JSON`);
+                //         let llmResponse = vars.SIDE_NOTE;
+                //         if (typeof llmResponse === 'string') {
+                //             llmResponse = JSON.parse(llmResponse);
+                //         }
+                //         parseLLMResponse(llmResponse, localState.currentStoryText);
+                //         hasUpdate = true;
+                //     } catch (error) {
+                //         console.error('解析SIDE_NOTE失败:', error);
+                //     }
+                // }
+
+                if (hasUpdate) {
+                    localState.turnUpdateApplied = true;
+                }
+            };
+
+            // 模板变量
+            // const mainText = `$1`;
+            // const llmResponse = $2;
+
+            // ========== 保留在HTML中的函数（用于onclick调用） ==========
+
+            // 修改 showPlayerStats 函数
+            function showPlayerStats() {
+                // 只有当前场景不是角色属性或人际关系时才记录
+                const activeScene = document.querySelector('.scene.active');
+                if (activeScene &&
+                    activeScene.id !== 'player-stats-scene' &&
+                    activeScene.id !== 'relationships-scene') {
+                    previousScene = activeScene.id.replace('-scene', '');
+                    wasInSLGMode = GameMode === 1;
+                }
+
+                // 清除SLG相关元素
+                const viewport = document.getElementById('main-viewport');
+                const existingLayers = viewport.querySelectorAll('.slg-layer-container, .slg-layer');
+                existingLayers.forEach(layer => layer.remove());
+                const existingMask = viewport.querySelector('.slg-interaction-mask');
+                if (existingMask) existingMask.remove();
+
+                // 先切换场景
+                switchScene('player-stats');
+                updateStatsDisplay();
+
+                // 如果是SLG模式，移除该场景的slg-mode类
+                if (GameMode === 1) {
+                    const statsScene = document.getElementById('player-stats-scene');
+                    statsScene.classList.remove('slg-mode');
+                }
+            }
+
+            // 从开局页接收 SLGMODE 并触发渲染，测试开局界面，不对的话就取消这部分
+            try {
+                const cached = sessionStorage.getItem('__templateVarsFromStart');
+                if (cached) {
+                    const vars = JSON.parse(cached);
+                    sessionStorage.removeItem('__templateVarsFromStart');
+                    if (typeof window.updateTemplateVariables === 'function') {
+                        window.updateTemplateVariables(vars);
+                    }
+                }
+                // 兜底：若跨域导致 sessionStorage 为空，尝试 window.name
+                if (!cached && window.name) {
+                    try {
+                        const parsed = JSON.parse(window.name);
+                        if (parsed && typeof parsed === 'object' && parsed.SLGMODE && typeof window.updateTemplateVariables === 'function') {
+                            window.updateTemplateVariables(parsed);
+                        }
+                    } catch (e) { }
+                }
+            } catch (e) { console.warn('读取开场白失败', e); }
+
+            // 修改 showRelationships 函数
+            function showRelationships() {
+                // 只有当前场景不是角色属性或人际关系时才记录
+                const activeScene = document.querySelector('.scene.active');
+                if (activeScene &&
+                    activeScene.id !== 'player-stats-scene' &&
+                    activeScene.id !== 'relationships-scene') {
+                    previousScene = activeScene.id.replace('-scene', '');
+                    wasInSLGMode = GameMode === 1;
+                }
+
+                // 清除SLG相关元素
+                const viewport = document.getElementById('main-viewport');
+                const existingLayers = viewport.querySelectorAll('.slg-layer-container, .slg-layer');
+                existingLayers.forEach(layer => layer.remove());
+                const existingMask = viewport.querySelector('.slg-interaction-mask');
+                if (existingMask) existingMask.remove();
+
+                // 先切换场景
+                switchScene('relationships');
+                updateRelationshipsDisplay();
+
+                // 如果是SLG模式，移除该场景的slg-mode类
+                if (GameMode === 1) {
+                    const relScene = document.getElementById('relationships-scene');
+                    relScene.classList.remove('slg-mode');
+                }
+            }
+
+            // 切换NPC可见性
+            function toggleNpcVisibility(npcId) {
+                const checkbox = document.getElementById(`visibility-${npcId}`);
+                npcVisibility[npcId] = checkbox.checked;
+
+                // 如果NPC被设置为不显示，立即将其位置设为none
+                if (!npcVisibility[npcId]) {
+                    currentNpcLocations[npcId] = 'none';
+
+                    // 更新对应的位置变量
+                    switch (npcId) {
+                        case 'A': npcLocationA = 'none'; break;
+                        case 'B': npcLocationB = 'none'; break;
+                        case 'C': npcLocationC = 'none'; break;
+                        case 'D': npcLocationD = 'none'; break;
+                        case 'E': npcLocationE = 'none'; break;
+                        case 'F': npcLocationF = 'none'; break;
+                        case 'G': npcLocationG = 'none'; break;
+                        case 'H': npcLocationH = 'none'; break;
+                        case 'I': npcLocationI = 'none'; break;
+                        case 'J': npcLocationJ = 'none'; break;
+                        case 'K': npcLocationK = 'none'; break;
+                        case 'L': npcLocationL = 'none'; break;
+                        case 'Z': npcLocationZ = 'none'; break;
+                    }
+
+                    // 如果当前场景有该NPC，更新显示
+                    const activeScene = document.querySelector('.scene.active');
+                    if (activeScene && activeScene.id !== 'map-scene') {
+                        const locationName = activeScene.id.replace('-scene', '');
+                        displayNpcs(locationName);
+                    }
+                }
+
+                // 保存游戏数据
+                // saveGameData();
+            }
+
+            // 送礼函数
+            async function giveGift(npcId) {
+                const npc = npcs[npcId];
+                const currentFavorability = npcFavorability[npcId];
+
+                // 再次检查条件
+                if (npcGiftGiven[npcId]) {
+                    showModal('本周已经给该NPC送过礼物了！');
+                    return;
+                }
+
+                if (currentFavorability > 40) {
+                    showModal(`${npc.name}的好感度已经超过40，无需再送礼！`);
+                    return;
+                }
+
+                if (playerStats.金钱 < 500) {
+                    showModal('金钱不足500，无法送礼！');
+                    return;
+                }
+
+                // 执行送礼
+                playerStats.金钱 -= 500;
+                npcFavorability[npcId] = Math.min(100, npcFavorability[npcId] + 5);
+                npcGiftGiven[npcId] = true;
+
+                checkAllValueRanges();
+                updateStatsDisplay();
+                updateRelationshipsDisplay();
+
+                // 发送消息
+                const message = `你花费500金钱给${npc.name}送了一份礼物<br>` +
+                    `${npc.name}的好感度提升至${npcFavorability[npcId]}`;
+
+                await showModal(message);
+            }
+
+            // 修改 skipWeek 函数，在跳过周时重置送礼状态
+            async function skipWeek() {
+                showConfirmModal(
+                    '确认跳过',
+                    '确定要跳过这一周吗？',
+                    async () => {
+                        currentWeek++;
+                        actionPoints = 3;
+                        userLocation = "tianshanpai";
+
+                        // 更新季节
+                        const newSeason = calculateSeason(currentWeek);
+                        if (newSeason !== seasonStatus) {
+                            seasonStatus = newSeason;
+                            console.log(`季节更新为：${seasonStatus}`);
+                        }
+
+                        // 更新场景背景
+                        updateSceneBackgrounds();
+
+                        // 重置所有NPC的送礼状态
+                        Object.keys(npcGiftGiven).forEach(npcId => {
+                            npcGiftGiven[npcId] = false;
+                        });
+
+                        // 重置所有NPC的切磋状态
+                        Object.keys(npcSparred).forEach(npcId => {
+                            npcSparred[npcId] = false;
+                        });
+
+                        // 重置炼丹状态
+                        alchemyDone = false;
+
+                        // 更新本周好感度快照（用于周好感上限限制）
+                        Object.keys(npcFavorability).forEach(npcId => {
+                            weekStartFavorability[npcId] = npcFavorability[npcId];
+                        });
+
+                        checkAllValueRanges();
+                        updateAllDisplays();
+                        refreshNpcLocations();
+
+                        // 检查特殊事件
+                        const specialEvent = typeof checkSpecialEvents === 'function' ? checkSpecialEvents() : null;
+                        const year = Math.floor((currentWeek - 1) / 48) + 1;
+                        const remainingWeeks = (currentWeek - 1) % 48;
+                        const month = Math.floor(remainingWeeks / 4) + 1;
+                        const week = remainingWeeks % 4 + 1;
+
+                        if (specialEvent) {
+                            console.log(`[skipWeek] Kích hoạt sự kiện đặc biệt: ${specialEvent.name}`);
+                            // Kích hoạt sự kiện đặc biệt (sẽ áp dụng hiệu quả, đánh dấu đã kích hoạt, gửi văn bản mặc định)
+                            // Truyền fromSkipWeek: true để đánh dấu là được kích hoạt bởi nút bỏ qua tuần
+                            await triggerSpecialEvent(specialEvent, { fromSkipWeek: true });
+                        } else {
+                            // Không có sự kiện đặc biệt, gửi tin nhắn tuần mới bình thường
+                            await handleMessageOutput('Hành Động: Tuần mới đã bắt đầu<br>Thời gian: Năm thứ ' + year + ' Tháng ' + month + ' Tuần ' + week);
+                        }
+                    }
+                );
+            }
+
+            // 执行互动
+            async function performAction(action, location) {
+                // 新增：如果是SLG模式，不执行任何操作
+                if (GameMode === 1) {
+                    return;
+                }
+                if (action === '秘密赌场') {
+                    if (actionPoints < 1) {
+                        showModal('行动点不足，无法进行此操作！');
+                        return;
+                    }
+
+                    let actionPointConsumed = true;
+                    const mindChance = playerTalents.心性 / 2;
+                    if (Math.random() * 100 < mindChance) {
+                        actionPointConsumed = false;
+                    } else {
+                        actionPoints--;
+                    }
+                    checkAllValueRanges();
+                    updateAllDisplays();
+
+                    showBlackjackGame();
+
+                    if (!actionPointConsumed) {
+                        window.pendingMindMessage = true;
+                    }
+                    return;
+                }
+
+                if (action === '耕种') {
+                    // if (actionPoints < 1) {
+                    //     showModal('行动点不足，无法进行此操作！');
+                    //     return;
+                    // }
+
+                    // let actionPointConsumed = true;
+                    // const mindChance = playerTalents.心性 / 2;
+                    // if (Math.random() * 100 < mindChance) {
+                    //     actionPointConsumed = false;
+                    // } else {
+                    //     actionPoints--;
+                    // }
+                    // checkAllValueRanges();
+                    // updateAllDisplays();
+
+                    showFarmGame();
+
+                    // if (!actionPointConsumed) {
+                    //     window.pendingMindMessage = true;
+                    // }
+                    return;
+                }
+
+                if (action === '炼丹') {
+                    showAlchemyGame();
+                    return;
+                }
+
+                if (actionPoints < 1) {
+                    showModal('行动点不足，无法进行此操作！');
+                    return;
+                }
+
+                let actionPointConsumed = true;
+                let mindMessageShown = false;
+                const mindChance = playerTalents.心性 / 2;
+                if (Math.random() * 100 < mindChance) {
+                    actionPointConsumed = false;
+                    mindMessageShown = true;
+                } else {
+                    actionPoints--;
+                }
+
+                const config = actionConfigs[action];
+                const talentBonus = playerTalents[config.talentBonus] / 2;
+
+                // 根据难度调整成功率计算
+                let moodBonus = 10; // 默认普通难度
+
+                switch (difficulty) {
+                    case 'easy':
+                        moodBonus = 20;
+                        break;
+                    case 'normal':
+                        moodBonus = 10;
+                        break;
+                    case 'hard':
+                        moodBonus = 0;
+                        break;
+                }
+
+                const randomRoll = Math.random() * 100;
+                const finalValue = (randomRoll + talentBonus) * (playerMood + moodBonus) / 100;
+
+                let successLevel, successText, moodCost;
+                let statChange = {};
+
+                if (finalValue >= 80) {
+                    successLevel = 'Đại Thành Công';
+                    successText = 'Thành quả phi nhiên!';
+                    moodCost = 0;
+                    if (action === '休息') {
+                        const oldMood = playerMood;
+                        playerMood = Math.min(100, playerMood + 90);  // 限制最多到100
+                        statChange.体力 = '+' + (playerMood - oldMood);  // 显示实际增加值
+                    } else if (config.affects === '金钱') {
+                        statChange[config.affects] = 1000;
+                    } else if (config.affects === '声望') {
+                        statChange[config.affects] = 5;
+                    } else {
+                        statChange[config.affects] = 5;
+                    }
+                } else if (finalValue >= 60) {
+                    successLevel = 'Thành Công';
+                    successText = 'Thu hoạch khá nhiều.';
+                    moodCost = 5;
+                    if (action === '休息') {
+                        const oldMood = playerMood;
+                        playerMood = Math.min(100, playerMood + 60);  // 限制最多到100
+                        statChange.体力 = '+' + (playerMood - oldMood);  // 显示实际增加值
+                    } else if (config.affects === '金钱') {
+                        statChange[config.affects] = 500;
+                    } else if (config.affects === '声望') {
+                        statChange[config.affects] = 3;
+                    } else {
+                        statChange[config.affects] = 3;
+                    }
+                } else if (finalValue >= 40) {
+                    successLevel = 'Bình Thường';
+                    successText = 'Bình bình không có gì lạ.';
+                    moodCost = 10;
+                    if (action === '休息') {
+                        const oldMood = playerMood;
+                        playerMood = Math.min(100, playerMood + 45);  // 限制最多到100
+                        statChange.体力 = '+' + (playerMood - oldMood);  // 显示实际增加值
+                    } else if (config.affects === '金钱') {
+                        statChange[config.affects] = 100;
+                    } else if (config.affects === '声望') {
+                        statChange[config.affects] = 1;
+                    } else {
+                        statChange[config.affects] = 1;
+                    }
+                } else if (finalValue >= 20) {
+                    successLevel = 'Thất Bại';
+                    successText = 'Sự việc không như ý...';
+                    moodCost = 15;
+                    if (action === '休息') {
+                        const oldMood = playerMood;
+                        playerMood = Math.min(100, playerMood + 30);  // 限制最多到100
+                        statChange.体力 = '+' + (playerMood - oldMood);  // 显示实际增加值
+                    } else if (config.affects === '金钱') {
+                        statChange[config.affects] = -500;
+                    } else if (config.affects === '声望') {
+                        statChange[config.affects] = -2;
+                    } else {
+                        statChange[config.affects] = 0;
+                    }
+                } else {
+                    successLevel = 'Đại Thất Bại';
+                    successText = 'Thê thảm không nỡ nhìn!';
+                    moodCost = 20;
+                    if (action === '休息') {
+                        const oldMood = playerMood;
+                        playerMood = Math.min(100, playerMood + 30);  // 限制最多到100
+                        statChange.体力 = '+' + (playerMood - oldMood);  // 显示实际增加值
+                    } else if (config.affects === '金钱') {
+                        statChange[config.affects] = -1000;
+                    } else if (config.affects === '声望') {
+                        statChange[config.affects] = -5;
+                    } else {
+                        statChange[config.affects] = 0;
+                    }
+                }
+
+                if (config.affects !== '体力') {
+                    playerStats[config.affects] = Math.max(0, playerStats[config.affects] + statChange[config.affects]);
+                    if (action !== '休息') {
+                        playerMood = Math.max(0, playerMood - moodCost);
+                    }
+                }
+
+                checkAllValueRanges();
+
+                const npcsPresent = getNpcsAtLocation(location).map(npc => npc.name).join('、') || 'Không có';
+
+                let changeText = '';
+                Object.entries(statChange).forEach(([key, value]) => {
+                    changeText += `<br>${key}: ${value > 0 ? '+' : ''}${value}`;
+                });
+                if (action !== '休息') {
+                    changeText += `<br>Thể Lực: -${moodCost}`;
+                }
+
+                if (actionPointConsumed) {
+                    changeText += '<br>Điểm Hành Động: -1';
+                } else {
+                    changeText += '<br>Điểm Hành Động: -0 (Tâm tính phán định thành công)';
+                }
+
+                // 检查并更新季节（以防某些行动改变了周数）
+                const newSeason = calculateSeason(currentWeek);
+                if (newSeason !== seasonStatus) {
+                    seasonStatus = newSeason;
+                    updateSceneBackgrounds();
+                }
+
+                let locationInfo = '';
+                if (userLocation === userLocation_old) {
+                    locationInfo = `Địa điểm: ${locationNames[location]}<br>`;
+                } else {
+                    const oldLocationName = locationNames[userLocation_old] || userLocation_old;
+                    const newLocationName = locationNames[userLocation] || locationNames[location];
+                    locationInfo = `Địa điểm: Từ ${oldLocationName} đến ${newLocationName}<br>`;
+                }
+
+                let resultMessage = `Thời gian: Năm thứ ${Math.floor((currentWeek - 1) / 48) + 1} Tháng ${Math.floor(((currentWeek - 1) % 48) / 4) + 1} Tuần ${((currentWeek - 1) % 4) + 1}<br>` +
+                    `Mùa: ${seasonNameMap[seasonStatus] || 'Mùa Đông'}<br>` +
+                    locationInfo +  // 使用新的地点信息
+                    `{{user}} Hành động: ${action}<br>` +
+                    `NPC có mặt: ${npcsPresent}<br>` +
+                    `Kết quả: ${successLevel} - ${successText}<br><br>` +
+                    `Thay đổi thuộc tính: ${changeText}`;
+
+                updateAllDisplays();
+                refreshNpcLocations();
+
+                await handleMessageOutput(resultMessage);
+            }
+
+            // 刷新NPC位置
+            function refreshNpcLocations() {
+                // 获取用户当前位置（排除特殊场景）
+                const currentLocation = userLocation === 'tianshanpai' ||
+                    userLocation === 'player-stats' ||
+                    userLocation === 'relationships' ? null : userLocation;
+
+                // 保存当前位置的NPC
+                const npcsAtCurrentLocation = [];
+                if (currentLocation) {
+                    Object.keys(currentNpcLocations).forEach(npcId => {
+                        if (currentNpcLocations[npcId] === currentLocation) {
+                            npcsAtCurrentLocation.push(npcId);
+                        }
+                    });
+                }
+
+                const locationCount = {
+                    yanwuchang: 0,
+                    cangjingge: 0,
+                    huofang: 0,
+                    houshan: 0,
+                    yishiting: 0,
+                    tiejiangpu: 0,
+                    nandizi: 0,
+                    nvdizi: 0,
+                    shanmen: 0,
+                    gongtian: 0,
+                    danfang: 0
+                };
+
+                // 如果有当前位置，先统计该位置的NPC数量
+                if (currentLocation && locationCount.hasOwnProperty(currentLocation)) {
+                    locationCount[currentLocation] = npcsAtCurrentLocation.length;
+                }
+
+                // 只对不在当前位置的NPC进行重新分配
+                const npcsToShuffle = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'Z'].filter(
+                    npcId => !npcsAtCurrentLocation.includes(npcId)
+                );
+                const npcOrder = npcsToShuffle.sort(() => Math.random() - 0.5);
+
+                npcOrder.forEach(npcId => {
+                    // 新增：检查NPC是否被设置为不显示
+                    if (!npcVisibility[npcId]) {
+                        currentNpcLocations[npcId] = 'none';
+                        return;
+                    }
+
+                    let assigned = false;
+                    let attempts = 0;
+                    const maxAttempts = 20;
+
+                    while (!assigned && attempts < maxAttempts) {
+                        const location = getRandomLocation(npcId);
+
+                        // 跳过用户当前位置
+                        if (currentLocation && location === currentLocation) {
+                            attempts++;
+                            continue;
+                        }
+
+                        if (location === 'none') {
+                            currentNpcLocations[npcId] = location;
+                            assigned = true;
+                        } else if (locationCount[location] < 2) {
+                            currentNpcLocations[npcId] = location;
+                            locationCount[location]++;
+                            assigned = true;
+                        }
+
+                        attempts++;
+                    }
+
+                    if (!assigned) {
+                        currentNpcLocations[npcId] = 'none';
+                    }
+                });
+
+                // 更新各个NPC的位置变量
+                npcLocationA = currentNpcLocations.A;
+                npcLocationB = currentNpcLocations.B;
+                npcLocationC = currentNpcLocations.C;
+                npcLocationD = currentNpcLocations.D;
+                npcLocationE = currentNpcLocations.E;
+                npcLocationF = currentNpcLocations.F;
+                npcLocationG = currentNpcLocations.G;
+                npcLocationH = currentNpcLocations.H;
+                npcLocationI = currentNpcLocations.I;
+                npcLocationJ = currentNpcLocations.J;
+                npcLocationK = currentNpcLocations.K;
+                npcLocationL = currentNpcLocations.L;
+                npcLocationZ = currentNpcLocations.Z;
+
+                const activeScene = document.querySelector('.scene.active');
+                if (activeScene && activeScene.id !== 'map-scene') {
+                    const locationName = activeScene.id.replace('-scene', '');
+                    displayNpcs(locationName);
+                }
+
+                // 更新地图地点标签上的👤人数
+                if (typeof updateLocationHeadcountLabels === 'function') {
+                    updateLocationHeadcountLabels();
+                }
+            }
+
+            // 修改 backToMap 函数
+            function backToMap() {
+                // 移除返回按钮的偏移类
+                const backBtns = document.querySelectorAll('.back-btn.slg-mode-offset');
+                backBtns.forEach(btn => btn.classList.remove('slg-mode-offset'));
+
+                // 获取当前场景
+                const activeScene = document.querySelector('.scene.active');
+                const currentSceneId = activeScene ? activeScene.id : '';
+
+                // 如果是从角色属性或人际关系界面返回，且之前在SLG模式
+                if ((currentSceneId === 'player-stats-scene' || currentSceneId === 'relationships-scene')
+                    && wasInSLGMode && GameMode === 1) {
+
+                    // 直接返回到之前的SLG场景
+                    switchScene(previousScene);
+
+                    // 如果不是地图场景，添加slg-mode类
+                    if (previousScene !== 'map') {
+                        const targetScene = document.getElementById(previousScene + '-scene');
+                        if (targetScene) {
+                            targetScene.classList.add('slg-mode');
+                        }
+                    }
+
+                    // 恢复SLG显示
+                    updateStoryDisplay();
+
+                    // 重置状态
+                    wasInSLGMode = false;
+                } else {
+                    // 普通模式：返回地图
+                    const scenes = document.querySelectorAll('.scene');
+                    scenes.forEach(scene => {
+                        scene.classList.remove('active');
+                    });
+
+                    document.getElementById('map-scene').classList.add('active');
+                    userLocation = 'tianshanpai';
+
+                    // 取消地图高亮与弹窗
+                    try {
+                        const svg = document.getElementById('map-hit-areas');
+                        if (svg) {
+                            svg.querySelectorAll('polygon.active').forEach(n => n.classList.remove('active'));
+                        }
+                        const locPopup = document.getElementById('location-info-popup');
+                        if (locPopup) locPopup.classList.remove('show');
+                    } catch (e) { }
+                }
+            }
+
+            // 关闭弹窗
+            function closeModal() {
+                document.getElementById('modal').style.display = 'none';
+            }
+
+            // 发送互动内容
+            async function sendInteraction() {
+                const interactionContent = document.getElementById('interaction-input').value.trim();
+
+                if (!interactionContent) {
+                    alert('请输入互动内容！');
+                    return;
+                }
+
+                const activeScene = document.querySelector('.scene.active');
+                const location = activeScene.id.replace('-scene', '');
+
+                const npc = npcs[currentInteractionNpc];
+                const npcsPresent = getNpcsAtLocation(location).map(npc => npc.name).join('、') || 'Không có';
+
+                let locationInfo = '';
+                if (userLocation === userLocation_old) {
+                    locationInfo = `Địa điểm: ${locationNames[location]}<br>`;
+                } else {
+                    const oldLocationName = locationNames[userLocation_old] || userLocation_old;
+                    const newLocationName = locationNames[userLocation] || locationNames[location];
+                    locationInfo = `Địa điểm: Từ ${oldLocationName} đến ${newLocationName}<br>`;
+                }
+
+                const resultMessage = `Thời gian: Năm thứ ${Math.floor((currentWeek - 1) / 48) + 1} Tháng ${Math.floor(((currentWeek - 1) % 48) / 4) + 1} Tuần ${((currentWeek - 1) % 4) + 1}<br>` +
+                    `Mùa: ${seasonNameMap[seasonStatus] || 'Mùa Đông'}<br>` +
+                    locationInfo +  // 使用新的地点信息
+                    `{{user}} Hành động: Tương tác NPC<br>` +
+                    `&nbsp;&nbsp;&nbsp;&nbsp;Đối tượng tương tác: ${npc.name}<br>` +
+                    `&nbsp;&nbsp;&nbsp;&nbsp;Nội dung tương tác: <span class="interaction-content">${interactionContent}</span><br>`;
+
+                closeModal();
+
+                currentInteractionNpc = null;
+                currentInteractionLocation = null;
+
+                await handleMessageOutput(resultMessage);
+            }
+
+            // 增加攻击力
+            function addAttack() {
+                const remainingPoints = calculateRemainingPoints();
+                if (remainingPoints > 0) {
+                    showConfirmModal(
+                        'Xác Nhận Cộng Điểm',
+                        'Tiêu hao 1 điểm tiềm năng, tăng 10 điểm Công Kích?',
+                        () => {
+                            combatStats.攻击力 += 10;
+                            checkAllValueRanges();
+                            updateStatsDisplay();
+                            setTimeout(() => {
+                                showModal(`Công Kích tăng lên ${combatStats.攻击力}`);
+                            }, 100);
+                        }
+                    );
+                }
+            }
+
+            // 增加生命值
+            function addHP() {
+                const remainingPoints = calculateRemainingPoints();
+                if (remainingPoints > 0) {
+                    showConfirmModal(
+                        'Xác Nhận Cộng Điểm',
+                        'Tiêu hao 1 điểm tiềm năng, tăng 25 điểm Sinh Mệnh?',
+                        () => {
+                            combatStats.生命值 += 25;
+                            checkAllValueRanges();
+                            updateStatsDisplay();
+                            setTimeout(() => {
+                                showModal(`Sinh Mệnh tăng lên ${combatStats.生命值}`);
+                            }, 100);
+                        }
+                    );
+                }
+            }
+
+            // NPC动作
+            function npcAction(npcId, action) {
+                const popup = document.getElementById('npc-info-popup');
+                popup.classList.remove('show');
+                document.removeEventListener('click', closeNpcInfo);
+
+                if (action === '互动') {
+                    const activeScene = document.querySelector('.scene.active');
+                    const location = activeScene.id.replace('-scene', '');
+                    showInteractionInput(npcId, location);
+                } else if (action === '切磋') {
+                    // 检查是否本周已经切磋过
+                    if (npcSparred[npcId]) {
+                        showModal('Tuần này đã cùng vị đạo hữu này luận bàn rồi!');
+                        return;
+                    }
+
+                    const npc = npcs[npcId];
+                    currentBattleType = 'npc';
+                    currentBattleNpcName = npc.name;
+                    currentBattleNpcId = npcId;  // 新增：记录NPC ID
+
+                    const battleData = {
+                        player: {
+                            name: 'Bạn',
+                            attack: combatStats.攻击力,
+                            health: combatStats.生命值
+                        },
+                        enemy: {
+                            name: npc.name,
+                            maxHealth: 'Trung Bình',
+                            basicDamage: 'Trung Bình',
+                            category: 'Chưa Rõ'  // NPC切磋时类别默认为未知
+                        }
+                    };
+
+                    showBattleGame(battleData);
+                }
+            }
+
+            // 前往地点
+            function goToLocation(locationId) {
+                // 新增：如果是SLG模式，不允许切换场景
+                if (GameMode === 1) {
+                    return;
+                }
+
+                const popup = document.getElementById('location-info-popup');
+                popup.classList.remove('show');
+                document.removeEventListener('click', closeLocationInfo);
+
+                userLocation = locationId;
+                switchScene(locationId);
+            }
+
+            // 发送自由行动
+            async function sendFreeAction() {
+                const inputElement = document.getElementById('free-action-input');
+                const actionContent = inputElement.value.trim();
+
+                const year = Math.floor((currentWeek - 1) / 48) + 1;
+                const remainingWeeks = (currentWeek - 1) % 48;
+                const month = Math.floor(remainingWeeks / 4) + 1;
+                const week = remainingWeeks % 4 + 1;
+
+                if (!actionContent) {
+                    alert('Vui lòng nhập nội dung hành động tự do!');
+                    return;
+                }
+                let resultMessage = '';
+                // GameMode为1时的特殊处理
+                if (GameMode === 1) {
+                    // 根据mapLocation的危险度进行事件判定
+                    const dangerLevel = locationDangerLevels[mapLocation] || 'Thấp';
+                    const eventChance = dangerEventChance[dangerLevel];
+
+                    const eventRoll = Math.random() * 100;
+
+                    // 先判断战斗事件（优先级更高）
+                    if (eventRoll < eventChance.battle) {
+                        battleEvent = 1;
+                        randomEvent = 0;
+                        console.log(`Tại ${mapLocation} kích hoạt sự kiện chiến đấu! Mức nguy hiểm: ${dangerLevel}`);
+                    } else if (eventRoll < (eventChance.battle + eventChance.random)) {
+                        // 战斗事件没触发时，再判断随机事件
+                        randomEvent = 1;
+                        battleEvent = 0;
+                        console.log(`Tại ${mapLocation} kích hoạt sự kiện ngẫu nhiên! Mức nguy hiểm: ${dangerLevel}`);
+                    } else {
+                        randomEvent = 0;
+                        battleEvent = 0;
+                    }
+
+                    // 生成随行NPC名字列表
+                    let companionNames = 'Không có';
+                    if (companionNPC && companionNPC.length > 0) {
+                        companionNames = companionNPC.join('、');
+                    }
+
+                    // 构建事件信息
+                    let eventInfo = '';
+                    if (randomEvent === 1) {
+                        eventInfo += '<br>Sự kiện đặc biệt: Gặp sự kiện ngẫu nhiên';
+                    }
+                    if (battleEvent === 1) {
+                        eventInfo += '<br>Sự kiện đặc biệt: Gặp chiến đấu';
+                    }
+
+                    resultMessage = `Thời gian: Năm thứ ${year} Tháng ${month} Tuần ${week}<br>` +
+                        `Mùa: ${seasonNameMap[seasonStatus] || 'Mùa Đông'}<br>` +
+                        `Địa điểm: ${mapLocation}<br>` +
+                        `{{user}} Hành động tự do: "${actionContent}"<br>` +
+                        `NPC đi cùng: ${companionNames}` +
+                        eventInfo;
+                } else {
+                    // 原有的GameMode为0的逻辑
+                    const activeScene = document.querySelector('.scene.active');
+                    let currentLocation = '';
+
+                    const npcsPresent = getNpcsAtLocation(userLocation).map(npc => npc.name).join('、') || 'Không có';
+
+                    let locationInfo = '';
+                    if (activeScene.id === 'map-scene') {
+                        // 地图场景特殊处理
+                        if (userLocation === userLocation_old) {
+                            locationInfo = `Địa điểm: Thiên Sơn Phái<br>`;
+                        } else {
+                            const oldLocationName = locationNames[userLocation_old] || userLocation_old;
+                            locationInfo = `Địa điểm: Từ ${oldLocationName} đến Thiên Sơn Phái<br>`;
+                        }
+                    } else {
+                        const sceneName = activeScene.id.replace('-scene', '');
+                        const currentLocationName = locationNames[sceneName] || sceneName;
+
+                        if (userLocation === userLocation_old) {
+                            locationInfo = `Địa điểm: ${currentLocationName}<br>`;
+                        } else {
+                            const oldLocationName = locationNames[userLocation_old] || userLocation_old;
+                            locationInfo = `Địa điểm: Từ ${oldLocationName} đến ${currentLocationName}<br>`;
+                        }
+                    }
+
+                    resultMessage = `Thời gian: Năm thứ ${year} Tháng ${month} Tuần ${week}<br>` +
+                        `Mùa: ${seasonNameMap[seasonStatus] || 'Mùa Đông'}<br>` +
+                        locationInfo +
+                        `{{user}} Hành động tự do: "${actionContent}"<br>` +
+                        `NPC có mặt: ${npcsPresent}`;
+                }
+                inputElement.value = '';
+                inputElement.style.height = 'auto';
+
+                await handleMessageOutput(resultMessage);
+            }
+            // 发起战斗
+            function startBattle() {
+                if (!currentBattleEvent || !currentBattleEvent.敌方信息) return;
+
+                const enemyInfo = currentBattleEvent.敌方信息;
+                currentBattleType = 'event';
+
+                const battleData = {
+                    player: {
+                        name: 'Bạn',
+                        attack: combatStats.攻击力,
+                        health: combatStats.生命值
+                    },
+                    enemy: {
+                        name: enemyInfo.名称,
+                        maxHealth: enemyInfo.属性?.生命力 || 'Trung bình',
+                        basicDamage: enemyInfo.属性?.攻击力 || 'Trung bình',
+                        category: enemyInfo.类别 || 'Chưa rõ'  // 从敌方信息中提取类别
+                    }
+                };
+
+                showBattleGame(battleData);
+            }
+
+            // 放弃战斗
+            async function fleeBattle() {
+                if (!currentBattleEvent) return;
+
+                const resultMessage = currentBattleEvent.事件描述 + '<br><br>Bạn đã chọn tránh né trận chiến';
+
+                hideBattleEvent();
+
+                await handleMessageOutput(resultMessage);
+            }
+
+            // ========== 初始化 ==========
+            // window.onload = async function() {
+            //     //await loadOrInitGameData();
+            //     checkAllValueRanges();
+            //     updateAllDisplays();
+            //     setupLocationEvents();
+            //     setupMessageListeners();
+
+            //     if (isInRenderEnvironment()) {
+            //         const refreshBtn = document.querySelector('.refresh-npc-btn');
+            //         if (refreshBtn) {
+            //             refreshBtn.style.display = 'none';
+            //         }
+            //     }
+
+            //     if (userLocation === 'tianshanpai') {
+            //         document.getElementById('map-scene').classList.add('active');
+            //     } else {
+            //         switchScene(userLocation);
+            //     }
+
+            //     // parseLLMResponse(llmResponse, mainText);
+            // };
+
+            // 自由行动输入框事件
+            document.getElementById('free-action-input').addEventListener('input', function () {
+                this.style.height = 'auto';
+                const scrollHeight = this.scrollHeight;
+                this.style.height = Math.min(scrollHeight, 120) + 'px';
+            });
+
+            document.getElementById('free-action-input').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendFreeAction();
+                }
+            });
+
+            // 弹窗背景点击事件
+            document.getElementById('blackjack-modal').addEventListener('click', function (e) {
+                if (e.target === this) {
+                    const iframe = document.getElementById('blackjack-iframe');
+                    try {
+                        iframe.contentWindow.postMessage({ type: 'close-game' }, '*');
+                    } catch (e) {
+                        this.style.display = 'none';
+                        iframe.src = '';
+                    }
+                }
+            });
+
+            document.getElementById('battle-modal').addEventListener('click', function (e) {
+                if (e.target === this) {
+                    if (confirm('Đạo hữu có chắc chắn muốn rời khỏi chiến trường?')) {
+                        this.style.display = 'none';
+                        document.getElementById('battle-iframe').src = '';
+
+                        if (currentBattleType === 'event') {
+                            hideBattleEvent();
+                        }
+
+                        currentBattleType = null;
+                        currentBattleReward = null;
+                    }
+                }
+            });
+
+            document.getElementById('farm-modal').addEventListener('click', function (e) {
+                if (e.target === this) {
+                    if (confirm('Đạo hữu có chắc chắn muốn rời khỏi Linh Điền?')) {
+                        this.style.display = 'none';
+                        document.getElementById('farm-iframe').src = '';
+                    }
+                }
+            });
+
+            document.getElementById('alchemy-modal').addEventListener('click', function (e) {
+                if (e.target === this) {
+                    if (confirm('Đạo hữu có chắc chắn muốn rời khỏi Đan Phòng?')) {
+                        this.style.display = 'none';
+                        document.getElementById('alchemy-iframe').src = '';
+                    }
+                }
+            });
+
+            // 翻页相关函数（调用game-ui.js中的实际实现）
+            function goToPage(pageNum) {
+                if (typeof doGoToPage === 'function') {
+                    doGoToPage(pageNum);
+                }
+            }
+
+            function prevPage() {
+                if (typeof doPrevPage === 'function') {
+                    doPrevPage();
+                }
+            }
+
+            function nextPage() {
+                if (typeof doNextPage === 'function') {
+                    doNextPage();
+                }
+            }
+
+            function toggleStoryExpand() {
+                if (typeof doToggleStoryExpand === 'function') {
+                    doToggleStoryExpand();
+                }
+            }
+
+            // 从SLG模式返回
+            async function returnFromSLG() {
+                const message = 'Bạn đã kết thúc chuyến du lịch dưới núi và trở về Thiên Sơn Phái';
+
+                // 重置游戏模式
+                GameMode = 0;
+                slgModeData = [];
+
+                // 重置下山相关的变量
+                randomEvent = 0;
+                battleEvent = 0;
+                companionNPC = [];
+                mapLocation = '天山派';
+
+                // 清除SLG图层
+                const viewport = document.getElementById('main-viewport');
+                const existingLayers = viewport.querySelectorAll('.slg-layer');
+                existingLayers.forEach(layer => layer.remove());
+                const existingMask = viewport.querySelector('.slg-interaction-mask');
+                if (existingMask) existingMask.remove();
+
+                // 移除场景的SLG模式标记
+                const scenes = document.querySelectorAll('.scene');
+                scenes.forEach(scene => {
+                    scene.classList.remove('slg-mode');
+                });
+
+                // 设置userLocation为天山派地图
+                userLocation = 'tianshanpai';
+
+                // 切换到地图场景
+                switchScene('map');
+                document.getElementById('map-scene').classList.add('active');
+
+                // 更新按钮显示
+                updateSLGReturnButton();
+
+                // 刷新NPC位置
+                refreshNpcLocations();
+
+                // 保存游戏数据
+                // await saveGameData();
+
+                // // 根据环境处理消息输出
+                // if (isInRenderEnvironment()) {
+                //     const renderFunc = getRenderFunction();
+                //     try {
+                //         await renderFunc(`/send at={{lastMessageId}}+1 ${message}`);
+                //         await renderFunc('/trigger');
+                //         console.log('SLG return message sent:', message);
+                //     } catch (error) {
+                //         console.error('Error sending message:', error);
+                //         showModal(message);
+                //     }
+                // } else {
+                //     showModal(message);
+                // }
+                await handleMessageOutput(message);
+            }
+
+            // 下拉菜单控制
+            function toggleDropdown(dropdownId) {
+                const dropdown = document.getElementById(dropdownId);
+                const allDropdowns = document.querySelectorAll('.dropdown-menu');
+                const button = dropdown.previousElementSibling;
+
+                // 关闭其他下拉菜单
+                allDropdowns.forEach(d => {
+                    if (d.id !== dropdownId) {
+                        d.classList.remove('show');
+                        d.previousElementSibling.classList.remove('active');
+                    }
+                });
+
+                // 切换当前下拉菜单
+                dropdown.classList.toggle('show');
+                button.classList.toggle('active');
+            }
+
+            // 点击外部关闭下拉菜单
+            document.addEventListener('click', function (event) {
+                if (!event.target.closest('.dropdown-wrapper')) {
+                    document.querySelectorAll('.dropdown-menu').forEach(dropdown => {
+                        dropdown.classList.remove('show');
+                    });
+                    document.querySelectorAll('.dropdown-toggle').forEach(button => {
+                        button.classList.remove('active');
+                    });
+                }
+            });
+
+            // 存档功能
+            async function saveGame() {
+                // 计算时间信息
+                const year = Math.floor((currentWeek - 1) / 48) + 1;
+                const remainingWeeks = (currentWeek - 1) % 48;
+                const month = Math.floor(remainingWeeks / 4) + 1;
+                const week = remainingWeeks % 4 + 1;
+
+                // 获取当前地点名称（SLG模式用 mapLocation，否则用 userLocation）
+                const locationKey = (GameMode === 1 ? mapLocation : userLocation);
+                const locationName = locationNames[locationKey] || locationKey || 'Địa điểm không rõ';
+
+                // 构建存档名称
+                const saveName = `Năm thứ ${year} Tháng ${month} Tuần ${week}_Tại ${locationName}`;
+
+                // 调用SillyTavern的checkpoint命令
+                if (isInRenderEnvironment()) {
+                    const renderFunc = getRenderFunction();
+                    try {
+                        await renderFunc(`/checkpoint-create mesId={{LastMessageID}} ${saveName}`);
+                        showModal('Lưu game thành công!<br>Tên file lưu: ' + saveName);
+                    } catch (error) {
+                        console.error('存档失败:', error);
+                        showModal('Lưu game thất bại, vui lòng thử lại');
+                    }
+                } else {
+                    showModal('Môi trường hiện tại không hỗ trợ chức năng lưu game');
+                }
+
+                // 关闭下拉菜单
+                toggleDropdown('system-dropdown');
+            }
+
+            // 读档功能
+            async function loadGame() {
+                if (isInRenderEnvironment()) {
+                    const renderFunc = getRenderFunction();
+                    try {
+                        await renderFunc('/chat-manager');
+                    } catch (error) {
+                        console.error('打开聊天管理器失败:', error);
+                        showModal('Không thể mở trình quản lý trò chuyện');
+                    }
+                } else {
+                    showModal('Môi trường hiện tại không hỗ trợ chức năng tải game');
+                }
+
+                // 关闭下拉菜单
+                toggleDropdown('system-dropdown');
+            }
+
+            /* 打开难度设置 */
+            function showDifficultySettings() {
+                closeAllSpecialModals();
+                const modal = document.getElementById('difficulty-modal');
+                document.getElementById(`diff-${difficulty || 'normal'}`).checked = true;
+
+                // 先显示modal
+                modal.style.display = 'block';
+
+                // 延迟一帧后调整位置，确保DOM更新完成
+                requestAnimationFrame(() => {
+                    fitModalToViewport(modal);
+                    bindModalAutoFit(modal);
+                });
+
+                toggleDropdown('system-dropdown');
+            }
+
+            // 保存难度设置
+            async function saveDifficulty() {
+                const selectedDifficulty = document.querySelector('input[name="difficulty"]:checked').value;
+                difficulty = selectedDifficulty;
+
+                // 保存到SillyTavern变量
+                // await saveGameData();
+
+                // 显示确认信息
+                const difficultyNames = {
+                    'easy': 'Dễ',
+                    'normal': 'Bình Thường',
+                    'hard': 'Khó'
+                };
+                showModal(`Độ khó đã được thiết lập thành: ${difficultyNames[selectedDifficulty]}`);
+
+                // 关闭弹窗
+                closeDifficultyModal();
+            }
+
+            /* 关闭难度设置 */
+            function closeDifficultyModal() {
+                const modal = document.getElementById('difficulty-modal');
+                modal.style.display = 'none';
+                modal._unbindFit && modal._unbindFit();
+            }
+
+            // 显示金手指
+            function showCheatMode() {
+                closeAllSpecialModals();
+                // 填充当前数值
+                document.getElementById('cheat-gengu').value = playerTalents.根骨;
+                document.getElementById('cheat-wuxing').value = playerTalents.悟性;
+                document.getElementById('cheat-xinxing').value = playerTalents.心性;
+                document.getElementById('cheat-meili').value = playerTalents.魅力;
+
+                document.getElementById('cheat-wuxue').value = playerStats.武学;
+                document.getElementById('cheat-xueshi').value = playerStats.学识;
+                document.getElementById('cheat-shengwang').value = playerStats.声望;
+                document.getElementById('cheat-jinqian').value = playerStats.金钱;
+
+                document.getElementById('cheat-attack').value = combatStats.攻击力;
+                document.getElementById('cheat-hp').value = combatStats.生命值;
+
+                document.getElementById('cheat-mood').value = playerMood;
+                document.getElementById('cheat-actionpoints').value = actionPoints;
+                document.getElementById('cheat-week').value = currentWeek;
+
+                // 填充NPC好感度
+                document.getElementById('cheat-npc-A').value = npcFavorability.A;
+                document.getElementById('cheat-npc-B').value = npcFavorability.B;
+                document.getElementById('cheat-npc-C').value = npcFavorability.C;
+                document.getElementById('cheat-npc-D').value = npcFavorability.D;
+                document.getElementById('cheat-npc-E').value = npcFavorability.E;
+                document.getElementById('cheat-npc-F').value = npcFavorability.F;
+                document.getElementById('cheat-npc-G').value = npcFavorability.G;
+                document.getElementById('cheat-npc-H').value = npcFavorability.H;
+                document.getElementById('cheat-npc-I').value = npcFavorability.I;
+                document.getElementById('cheat-npc-J').value = npcFavorability.J;
+                document.getElementById('cheat-npc-K').value = npcFavorability.K;
+                document.getElementById('cheat-npc-L').value = npcFavorability.L;
+                // document.getElementById('cheat-npc-Z').value = npcFavorability.Z;  // 占位角色Z - 已注释
+                document.getElementById('cheat-npc-M').value = npcFavorability.M;
+                document.getElementById('cheat-npc-N').value = npcFavorability.N;
+                document.getElementById('cheat-npc-O').value = npcFavorability.O;
+
+                const modal = document.getElementById('cheat-modal');
+                modal.style.display = 'block';
+
+                // 延迟一帧后调整位置
+                requestAnimationFrame(() => {
+                    fitModalToViewport(modal);
+                    bindModalAutoFit(modal);
+                });
+
+                toggleDropdown('system-dropdown');
+            }
+
+            // 保存金手指数值
+            async function saveCheatValues() {
+                // 更新天赋属性
+                playerTalents.根骨 = parseInt(document.getElementById('cheat-gengu').value);
+                playerTalents.悟性 = parseInt(document.getElementById('cheat-wuxing').value);
+                playerTalents.心性 = parseInt(document.getElementById('cheat-xinxing').value);
+                playerTalents.魅力 = parseInt(document.getElementById('cheat-meili').value);
+
+                // 更新人物数值
+                playerStats.武学 = parseInt(document.getElementById('cheat-wuxue').value);
+                playerStats.学识 = parseInt(document.getElementById('cheat-xueshi').value);
+                playerStats.声望 = parseInt(document.getElementById('cheat-shengwang').value);
+                playerStats.金钱 = parseInt(document.getElementById('cheat-jinqian').value);
+
+                // 更新战斗数值
+                combatStats.攻击力 = parseInt(document.getElementById('cheat-attack').value);
+                combatStats.生命值 = parseInt(document.getElementById('cheat-hp').value);
+
+                // 更新其他数值
+                playerMood = parseInt(document.getElementById('cheat-mood').value);
+                actionPoints = parseInt(document.getElementById('cheat-actionpoints').value);
+                currentWeek = parseInt(document.getElementById('cheat-week').value);
+
+                // 更新NPC好感度
+                npcFavorability.A = parseInt(document.getElementById('cheat-npc-A').value);
+                npcFavorability.B = parseInt(document.getElementById('cheat-npc-B').value);
+                npcFavorability.C = parseInt(document.getElementById('cheat-npc-C').value);
+                npcFavorability.D = parseInt(document.getElementById('cheat-npc-D').value);
+                npcFavorability.E = parseInt(document.getElementById('cheat-npc-E').value);
+                npcFavorability.F = parseInt(document.getElementById('cheat-npc-F').value);
+                npcFavorability.G = parseInt(document.getElementById('cheat-npc-G').value);
+                npcFavorability.H = parseInt(document.getElementById('cheat-npc-H').value);
+                npcFavorability.I = parseInt(document.getElementById('cheat-npc-I').value);
+                npcFavorability.J = parseInt(document.getElementById('cheat-npc-J').value);
+                npcFavorability.K = parseInt(document.getElementById('cheat-npc-K').value);
+                npcFavorability.L = parseInt(document.getElementById('cheat-npc-L').value);
+                // npcFavorability.Z = parseInt(document.getElementById('cheat-npc-Z').value);  // 占位角色Z - 已注释
+                npcFavorability.M = parseInt(document.getElementById('cheat-npc-M').value);
+                npcFavorability.N = parseInt(document.getElementById('cheat-npc-N').value);
+                npcFavorability.O = parseInt(document.getElementById('cheat-npc-O').value);
+                // 检查数值范围
+                checkAllValueRanges();
+
+                // 更新所有显示
+                updateAllDisplays();
+
+                // 如果在关系界面，更新关系显示
+                const activeScene = document.querySelector('.scene.active');
+                if (activeScene && activeScene.id === 'relationships-scene') {
+                    updateRelationshipsDisplay();
+                }
+
+                // 保存到SillyTavern
+                // await saveGameData();
+
+                // 显示确认信息
+                showModal('Đã sửa đổi và lưu các chỉ số!');
+
+                // 关闭弹窗
+                closeCheatModal();
+            }
+
+            // 关闭金手指弹窗
+            function closeCheatModal() {
+                const modal = document.getElementById('cheat-modal');
+                modal.style.display = 'none';
+                modal._unbindFit && modal._unbindFit();
+            }
+
+            // 显示背包
+            function showInventory() {
+                closeAllSpecialModals();
+                const grid = document.getElementById('inventory-grid');
+                grid.innerHTML = '';
+
+                for (const [itemName, quantity] of Object.entries(inventory)) {
+                    if (quantity > 0) {
+                        const itemData = item_list[itemName];
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'inventory-item';
+                        itemDiv.onclick = () => showItemDetail(itemName);
+
+                        let icon = '📦';
+                        if (itemData) {
+                            if (itemData.装备类型 === '武器') icon = '⚔️';
+                            else if (itemData.装备类型 === '防具') icon = '🛡️';
+                            else if (itemData.装备类型 === '饰品') icon = '💎';
+                            else if (itemData.可使用) icon = '🍖';
+                        }
+
+                        itemDiv.innerHTML = `
+                        <div class="item-icon">${icon}</div>
+                        <div class="item-name">${itemName}</div>
+                        <div class="item-quantity">×${quantity}</div>
+                    `;
+
+                        grid.appendChild(itemDiv);
+                    }
+                }
+
+                if (grid.children.length === 0) {
+                    grid.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">Túi đồ trống không</div>';
+                }
+
+                const modal = document.getElementById('inventory-modal');
+                modal.style.display = 'block';
+
+                // 延迟一帧后调整位置
+                requestAnimationFrame(() => {
+                    fitModalToViewport(modal);
+                    bindModalAutoFit(modal);
+                });
+
+                toggleDropdown('attribute-dropdown');
+            }
+
+            // 显示装备
+            function showEquipment() {
+                closeAllSpecialModals();
+                updateEquipmentSlot('weapon-slot', equipment.武器);
+                updateEquipmentSlot('armor-slot', equipment.防具);
+                updateEquipmentSlot('accessory1-slot', equipment.饰品1);
+                updateEquipmentSlot('accessory2-slot', equipment.饰品2);
+
+                // 显示当前装备效果
+                const effectDiv = document.getElementById('equipment-effect');
+                effectDiv.innerHTML = '';
+
+                let hasEffect = false;
+                for (const [slot, itemName] of Object.entries(equipment)) {
+                    if (itemName && item_list[itemName]) {
+                        const item = item_list[itemName];
+                        effectDiv.innerHTML += `<div class="stat-effect">${itemName}: ${item.装备属性} +${item.装备数值}</div>`;
+                        hasEffect = true;
+                    }
+                }
+
+                if (!hasEffect) {
+                    effectDiv.innerHTML = '<div style="color: #999;">Chưa có hiệu quả trang bị</div>';
+                }
+
+                const modal = document.getElementById('equipment-modal');
+                modal.style.display = 'block';
+
+                // 延迟一帧后调整位置
+                requestAnimationFrame(() => {
+                    fitModalToViewport(modal);
+                    bindModalAutoFit(modal);
+                });
+
+                toggleDropdown('attribute-dropdown');
+            }
+
+            // 关闭弹窗函数
+            function closeInventoryModal() {
+                const modal = document.getElementById('inventory-modal');
+                modal.style.display = 'none';
+                modal._unbindFit && modal._unbindFit();
+            }
+
+            function closeEquipmentModal() {
+                const modal = document.getElementById('equipment-modal');
+                modal.style.display = 'none';
+                modal._unbindFit && modal._unbindFit();
+            }
+
+            // 当前交易类型
+            let currentTradingType = 'food';
+
+            // 显示交易界面
+            function showTrading(type) {
+                closeAllSpecialModals();
+                currentTradingType = type;
+
+                // 设置商店区域标题
+                document.getElementById('shop-title').textContent = type === 'food' ? 'Thức ăn Hỏa Phòng' : 'Trang bị Thiết Tượng Phủ';
+
+                // 显示当前金钱
+                document.getElementById('trading-money-value').textContent = playerStats.金钱;
+
+                // 生成用户可卖物品列表
+                const userList = document.getElementById('user-items-list');
+                userList.innerHTML = '';
+
+                let hasTradeableItems = false;
+                for (const [itemName, quantity] of Object.entries(inventory)) {
+                    if (quantity > 0 && item_list[itemName] && item_list[itemName].可交易) {
+                        hasTradeableItems = true;
+                        const item = item_list[itemName];
+
+                        const itemRow = document.createElement('div');
+                        itemRow.className = 'trading-item-row';
+
+                        itemRow.innerHTML = `
+                        <div class="trading-item-info">
+                            <div class="trading-item-name">${itemName} × ${quantity}</div>
+                            <div class="trading-item-price">Giá bán: ${item.卖出价格} Kim Tệ</div>
+                        </div>
+                        <button class="trading-btn sell-btn" onclick="sellItem('${itemName}')">Bán ra</button>
+                    `;
+
+                        userList.appendChild(itemRow);
+                    }
+                }
+
+                if (!hasTradeableItems) {
+                    userList.innerHTML = '<div class="trading-empty">Không có vật phẩm nào có thể giao dịch</div>';
+                }
+
+                // 生成商店物品列表
+                const shopList = document.getElementById('shop-items-list');
+                shopList.innerHTML = '';
+
+                let shopItems = [];
+
+                if (type === 'food') {
+                    // 伙房出售食物
+                    shopItems = ['胡饼', '桂花糕', '烤羊腿'];
+                } else {
+                    // 铁匠铺出售装备
+                    shopItems = ['制式铁剑', '精钢长剑', '普通弟子服', '铁环软锁甲'];
+                }
+
+                shopItems.forEach(itemName => {
+                    const item = item_list[itemName];
+                    if (item && item.可交易) {
+                        const itemRow = document.createElement('div');
+                        itemRow.className = 'trading-item-row shop-item-row';
+
+                        // 只保留详情按钮，移除购买按钮
+                        itemRow.innerHTML = `
+                        <div class="trading-item-info">
+                            <div class="trading-item-name">${itemName}</div>
+                            <div class="trading-item-price">Giá: ${item.买入价格} Kim Tệ</div>
+                        </div>
+                        <button class="trading-btn detail-btn" onclick="showShopItemDetail('${itemName}')">Chi tiết</button>
+                    `;
+
+                        shopList.appendChild(itemRow);
+                    }
+                });
+
+                const modal = document.getElementById('trading-modal');
+                modal.style.display = 'block';
+
+                // 延迟一帧后调整位置
+                requestAnimationFrame(() => {
+                    fitModalToViewport(modal);
+                    bindModalAutoFit(modal);
+                });
+            }
+
+            // 购买物品
+            async function buyItem(itemName) {
+                const item = item_list[itemName];
+                if (!item || playerStats.金钱 < item.买入价格) return;
+
+                playerStats.金钱 -= item.买入价格;
+                inventory[itemName] = (inventory[itemName] || 0) + 1;
+
+                checkAllValueRanges();
+                updateAllDisplays();
+                // await saveGameData();
+
+                // 不显示弹窗，直接刷新交易界面
+                showTrading(currentTradingType);
+            }
+
+            // 卖出物品（只保留这一个）
+            async function sellItem(itemName) {
+                const item = item_list[itemName];
+                if (!item || !inventory[itemName] || inventory[itemName] <= 0) return;
+
+                // 检查是否是已装备的物品
+                const isEquipped = Object.values(equipment).includes(itemName);
+                if (isEquipped && inventory[itemName] === 1) {
+                    showModal('Vật phẩm này đang được trang bị, vui lòng tháo xuống trước khi bán!');
+                    return;
+                }
+
+                playerStats.金钱 += item.卖出价格;
+                inventory[itemName]--;
+                if (inventory[itemName] <= 0) {
+                    delete inventory[itemName];
+                }
+
+                checkAllValueRanges();
+                updateAllDisplays();
+                // await saveGameData();
+
+                // 不显示弹窗，直接刷新交易界面
+                showTrading(currentTradingType);
+            }
+
+            // 关闭交易弹窗
+            function closeTrading() {
+                const modal = document.getElementById('trading-modal');
+                modal.style.display = 'none';
+                modal._unbindFit && modal._unbindFit();
+            }
+
+            // 当前查看的商品
+            let currentShopItem = null;
+
+            // 显示商品详情
+            function showShopItemDetail(itemName) {
+                const item = item_list[itemName];
+                if (!item) return;
+
+                currentShopItem = itemName;
+
+                document.getElementById('shop-item-name').textContent = itemName;
+                document.getElementById('shop-item-description').textContent = item.描述;
+                document.getElementById('shop-item-price').textContent = item.买入价格 + ' 金';
+
+                let infoHTML = '';
+                if (item.可装备) {
+                    infoHTML += `<div class="shop-item-stat"><span class="shop-item-stat-label">Loại trang bị:</span>${item.装备类型}</div>`;
+                    infoHTML += `<div class="shop-item-stat"><span class="shop-item-stat-label">Thuộc tính trang bị:</span>${item.装备属性} +${item.装备数值}</div>`;
+                }
+                if (item.可使用) {
+                    infoHTML += `<div class="shop-item-stat"><span class="shop-item-stat-label">Hiệu quả sử dụng:</span>${getItemEffectText(item)}</div>`;
+                }
+                document.getElementById('shop-item-info').innerHTML = infoHTML;
+
+                // 更新购买按钮状态
+                const buyBtn = document.getElementById('shop-buy-btn');
+                const canAfford = playerStats.金钱 >= item.买入价格;
+                buyBtn.disabled = !canAfford;
+                buyBtn.textContent = canAfford ? 'Mua' : 'Tiền không đủ';
+
+                const modal = document.getElementById('shop-detail-modal');
+                modal.style.display = 'block';
+
+                // 将商品详情弹窗定位在交易弹窗的中心
+                const tradingModal = document.getElementById('trading-modal');
+                const tradingRect = tradingModal.getBoundingClientRect();
+                const detailContent = modal.querySelector('.modal-content');
+
+                // 设置商品详情弹窗的位置
+                detailContent.style.position = 'fixed';
+                detailContent.style.left = tradingRect.left + tradingRect.width / 2 + 'px';
+                detailContent.style.top = tradingRect.top + tradingRect.height / 2 + 'px';
+                detailContent.style.transform = 'translate(-50%, -50%)';
+
+                // 确保弹窗不超出交易弹窗的范围
+                requestAnimationFrame(() => {
+                    const detailRect = detailContent.getBoundingClientRect();
+
+                    // 检查是否超出边界并调整
+                    if (detailRect.left < tradingRect.left + 20) {
+                        detailContent.style.left = (tradingRect.left + 20 + detailRect.width / 2) + 'px';
+                    }
+                    if (detailRect.right > tradingRect.right - 20) {
+                        detailContent.style.left = (tradingRect.right - 20 - detailRect.width / 2) + 'px';
+                    }
+                    if (detailRect.top < tradingRect.top + 20) {
+                        detailContent.style.top = (tradingRect.top + 20 + detailRect.height / 2) + 'px';
+                    }
+                    if (detailRect.bottom > tradingRect.bottom - 20) {
+                        detailContent.style.top = (tradingRect.bottom - 20 - detailRect.height / 2) + 'px';
+                    }
+                });
+            }
+
+            // 从详情弹窗购买
+            async function buyItemFromDetail() {
+                if (!currentShopItem) return;
+
+                const item = item_list[currentShopItem];
+                if (!item || playerStats.金钱 < item.买入价格) return;
+
+                playerStats.金钱 -= item.买入价格;
+                inventory[currentShopItem] = (inventory[currentShopItem] || 0) + 1;
+
+                checkAllValueRanges();
+                updateAllDisplays();
+                // await saveGameData();
+
+                showModal(`Đã mua ${currentShopItem}!<br>Tiêu phí: ${item.买入价格} Kim Tệ`);
+
+                closeShopDetailModal();
+                showTrading(currentTradingType);
+            }
+
+            // 关闭商品详情弹窗
+            function closeShopDetailModal() {
+                document.getElementById('shop-detail-modal').style.display = 'none';
+                currentShopItem = null;
+            }
+
+            function showLastUserInput() {
+                // 关闭下拉菜单
+                toggleDropdown('history-dropdown');
+
+                // 关闭其他弹窗
+                closeAllSpecialModals();
+
+                // 创建专门的弹窗（不使用普通的modal）
+                const modal = document.createElement('div');
+                modal.className = 'modal viewport-overlay';
+                modal.id = 'last-input-modal';
+                modal.innerHTML = `
+                <div class="modal-content" style="max-width: 600px;">
+                    <h3 style="margin-bottom: 20px;">Nội dung nhập vòng trước</h3>
+                    <div id="last-input-display" style="
+                        background: #f5f5f5;
+                        padding: 15px;
+                        border-radius: 8px;
+                        margin-bottom: 20px;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        max-height: 300px;
+                        overflow-y: auto;
+                        text-align: left;
+                        white-space: pre-wrap;
+                        word-break: break-word;
+                    ">${lastUserMessage || 'Chưa có lịch sử nhập liệu'}</div>
+                    <textarea id="last-input-edit" style="
+                        display: none;
+                        width: 100%;
+                        min-height: 150px;
+                        max-height: 300px;
+                        padding: 15px;
+                        border-radius: 8px;
+                        border: 1px solid #ddd;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        resize: vertical;
+                        font-family: inherit;
+                        margin-bottom: 20px;
+                    ">${lastUserMessage || ''}</textarea>
+                    <div class="modal-buttons">
+                        <button class="modal-btn" id="edit-input-btn" onclick="toggleEditMode()">Chỉnh sửa</button>
+                        <button class="modal-btn" id="save-input-btn" style="display:none;" onclick="saveEditedInput()">Lưu</button>
+                        <button class="modal-btn" id="cancel-edit-btn" style="display:none;" onclick="cancelEdit()">Hủy chỉnh sửa</button>
+                        <button class="modal-btn cancel" onclick="closeLastInputModal()">Đóng</button>
+                    </div>
+                </div>
+            `;
+
+                document.body.appendChild(modal);
+                modal.style.display = 'block';
+
+                // 延迟一帧后调整位置
+                requestAnimationFrame(() => {
+                    fitModalToViewport(modal);
+                    bindModalAutoFit(modal);
+                });
+            }
+
+            // 显示汗青集（聊天总结记录）
+            async function showHistorySummary() {
+                // 关闭下拉菜单
+                toggleDropdown('history-dropdown');
+                // 关闭其他弹窗
+                closeAllSpecialModals();
+
+                const modal = document.getElementById('history-summary-modal');
+
+                // 关键：把汗青集弹窗搬到 body，避免受 #main-viewport 的裁剪/层级影响
+                if (modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+
+                // 显示弹窗并填充内容
+                modal.style.display = 'block';
+                const contentDiv = document.getElementById('history-summary-content');
+                const combinedSummary = [(compressSummary ? summary_Week : summary_Backup), summary_Small]
+                    .filter(s => s && s.trim())
+                    .join('\n\n');
+                contentDiv.textContent = combinedSummary || 'Chưa có ghi chép tóm tắt trò chuyện';
+
+                // 一帧后适配尺寸并绑定自动适配
+                requestAnimationFrame(() => {
+                    fitModalToViewport(modal);
+                    bindModalAutoFit(modal);
+                });
+            }
+
+            // 关闭汗青集弹窗
+            function closeHistorySummaryModal() {
+                const modal = document.getElementById('history-summary-modal');
+                modal.style.display = 'none';
+                modal._unbindFit && modal._unbindFit();
+            }
+
+            // 切换编辑模式
+            function toggleEditMode() {
+                const displayDiv = document.getElementById('last-input-display');
+                const editArea = document.getElementById('last-input-edit');
+                const editBtn = document.getElementById('edit-input-btn');
+                const saveBtn = document.getElementById('save-input-btn');
+                const cancelBtn = document.getElementById('cancel-edit-btn');
+
+                displayDiv.style.display = 'none';
+                editArea.style.display = 'block';
+                editBtn.style.display = 'none';
+                saveBtn.style.display = 'inline-block';
+                cancelBtn.style.display = 'inline-block';
+
+                // 自动聚焦并选中文本
+                editArea.focus();
+                editArea.select();
+            }
+
+            // 保存编辑的输入
+            async function saveEditedInput() {
+                const editArea = document.getElementById('last-input-edit');
+                const newMessage = editArea.value.trim();
+
+                if (newMessage) {
+                    // 更新本地变量
+                    lastUserMessage = newMessage;
+                    // gameData.lastUserMessage = newMessage;
+
+                    // 新增：检查是否是新的一周的消息（新版：年/月/周）
+                    const newWeekPattern = /^Hành Động: Tuần mới đã bắt đầu<br>Thời gian: Năm thứ (\d+) Tháng (\d+) Tuần (\d+)$/;
+                    const match = newMessage.match(newWeekPattern);
+
+                    if (match) {
+                        newWeek = 1;
+                        console.log('检测到新的一周开始，newWeek设置为1');
+                    } else {
+                        newWeek = 0;
+                        console.log('非新周消息，newWeek设置为0');
+                    }
+
+                    // 保存到SillyTavern变量
+                    const renderFunc = getRenderFunction();
+                    if (renderFunc) {
+                        await renderFunc(`/setvar key=lastMessage_jxz ${newMessage}`);
+                        await renderFunc(`/inject id=10 position=chat depth=0 scan=true role=user ${newMessage}`);
+                        await saveLastUserMessage();
+                        await saveNewWeek();
+                    }
+
+                    showModal('Nội dung nhập vòng trước đã được cập nhật!');
+                }
+
+                closeLastInputModal();
+            }
+
+            // 取消编辑
+            function cancelEdit() {
+                const displayDiv = document.getElementById('last-input-display');
+                const editArea = document.getElementById('last-input-edit');
+                const editBtn = document.getElementById('edit-input-btn');
+                const saveBtn = document.getElementById('save-input-btn');
+                const cancelBtn = document.getElementById('cancel-edit-btn');
+
+                displayDiv.style.display = 'block';
+                editArea.style.display = 'none';
+                editBtn.style.display = 'inline-block';
+                saveBtn.style.display = 'none';
+                cancelBtn.style.display = 'none';
+
+                // 恢复原始值
+                editArea.value = lastUserMessage || '';
+            }
+
+            // 关闭上轮输入弹窗
+            function closeLastInputModal() {
+                const modal = document.getElementById('last-input-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal._unbindFit && modal._unbindFit();
+                    modal.remove();
+                }
+            }
+
+            // 显示世界地图
+            function showWorldMap() {
+                const modal = document.getElementById('worldmap-modal');
+                const iframe = document.getElementById('worldmap-iframe');
+
+                // 准备传递给世界地图的数据
+                const params = new URLSearchParams({
+                    reputation: playerStats.声望,
+                    mapLocation: mapLocation,
+                    randomEvent: randomEvent,
+                    battleEvent: battleEvent,
+                    companionNPC: JSON.stringify(companionNPC),
+                    // 传递所有NPC的好感度
+                    npcFavorability: JSON.stringify(npcFavorability)
+                });
+
+                // 构建世界地图URL（根据你的实际部署情况调整）
+                const gameUrl = `https://Ji-Haitang.github.io/char_card_1/world_map.html?${params.toString()}`;
+                // 本地测试时使用：
+                // const gameUrl = `world_map.html?${params.toString()}`;
+
+                iframe.src = gameUrl;
+                modal.style.display = 'block';
+            }
+
+            // 添加世界地图弹窗的背景点击关闭事件
+            document.getElementById('worldmap-modal').addEventListener('click', function (e) {
+                if (e.target === this) {
+                    if (confirm('Đạo hữu có chắc chắn muốn đóng bản đồ thế giới?')) {
+                        this.style.display = 'none';
+                        document.getElementById('worldmap-iframe').src = '';
+                    }
+                }
+            });
+
+            // 根据当前开关刷新按钮文案
+            // function updateCgToggleLabel() {
+            //     const btn = document.getElementById('toggle-cg-btn');
+            //     if (btn) btn.textContent = `CG内容（${cgContentEnabled ? '开' : '关'}）`;
+            // }
+            function updateCgToggleLabel() {
+                const btn = document.getElementById('toggle-cg-btn');
+                const enabled = (typeof cgContentEnabled !== 'undefined') ? cgContentEnabled : false;
+                if (btn) btn.textContent = `Nội dung CG(${enabled ? 'Bật' : 'Tắt'})`;
+            }
+
+            // 切换CG内容开关（仅切开关，不改 slgCGOptions）
+            async function toggleCgContent() {
+                cgContentEnabled = !cgContentEnabled;
+
+                // 立即刷新当前页面展示（关闭时隐藏CG层，开启时显示）
+                if (GameMode === 1) {
+                    updateStoryDisplay();
+                }
+
+                // 保存到存档（可选）
+                // try { await saveGameData(); } catch (e) {}
+
+                // 更新按钮文案并收起菜单
+                updateCgToggleLabel();
+                toggleDropdown('system-dropdown');
+            }
+
+            // 切换强力总结开关 + 刷新按钮
+            function updateCompressSummaryLabel() {
+                const btn = document.getElementById('toggle-compress-summary-btn');
+                if (btn) btn.textContent = `Tóm tắt mạnh(${compressSummary ? 'Bật' : 'Tắt'})`;
+            }
+
+            // 切换强力总结开关
+            async function toggleCompressSummary() {
+                compressSummary = !compressSummary;
+                updateCompressSummaryLabel();
+            }
+
+            // 更新UI风格按钮文案
+            function updateUIStyleLabel() {
+                const btn = document.getElementById('toggle-ui-btn');
+                const style = (typeof uiStyle !== 'undefined') ? uiStyle : 0;
+                if (btn) btn.textContent = `Phong cách(${style === 0 ? 'Cổ Phong' : 'Đơn Giản'})`;
+            }
+
+            // 切换UI风格
+            function toggleUIStyle() {
+                uiStyle = (typeof uiStyle !== 'undefined' && uiStyle === 0) ? 1 : 0;
+                applyUIStyle(uiStyle);
+                updateUIStyleLabel();
+                toggleDropdown('system-dropdown');
+            }
+
+            // 应用UI风格
+            function applyUIStyle(style) {
+                const themeLink = document.getElementById('theme-css');
+                if (themeLink) {
+                    if (style === 0) {
+                        // 古风UI：启用主题CSS
+                        themeLink.disabled = false;
+                        // 添加古风UI类名，移除扁平化类名
+                        document.body.classList.add('ui-style-ancient');
+                        document.body.classList.remove('ui-style-flat');
+                    } else {
+                        // 扁平化UI：禁用主题CSS
+                        themeLink.disabled = true;
+                        // 添加扁平化类名，移除古风UI类名
+                        document.body.classList.add('ui-style-flat');
+                        document.body.classList.remove('ui-style-ancient');
+                    }
+                }
+            }
+
+            // 打开玩法说明
+            function openPlayGuide() {
+                window.open('https://rentry.org/how2playJXZ', '_blank');
+                toggleDropdown('system-dropdown');
+            }
+
+            // 字体设置弹窗
+            function showFontSettings() {
+                // 关闭下拉
+                toggleDropdown('history-dropdown');
+                // 若弹窗不存在，按需创建
+                let modal = document.getElementById('font-modal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'font-modal';
+                    modal.className = 'modal viewport-overlay';
+                    modal.style.display = 'none';
+                    modal.innerHTML = '<div class="modal-content" style="max-width: 520px;">\
+                    <h3>Kích cỡ chữ</h3>\
+                    <p>Kéo thanh trượt để cài đặt kích cỡ chữ (Mức 1-5).</p>\
+                    <div class="font-range-row" style="display:flex;align-items:center;gap:12px;margin: 12px 0;">\
+                        <span>Nhỏ</span>\
+                        <input id="font-range" type="range" min="1" max="5" step="1" value="2" style="flex:1;">\
+                        <span>Lớn</span>\
+                    </div>\
+                    <div class="modal-buttons">\
+                        <button class="modal-btn cancel" onclick="closeFontModal()">Đóng</button>\
+                    </div>\
+                </div>';
+                    document.body.appendChild(modal);
+                    // 注入灰色主题样式（仅一次）
+                    if (!document.getElementById('font-range-style')) {
+                        const style = document.createElement('style');
+                        style.id = 'font-range-style';
+                        style.textContent = '\n#font-modal input[type="range"]{ -webkit-appearance: none; width:100%; background: transparent; }\n#font-modal input[type="range"]:focus{ outline: none; }\n#font-modal input[type="range"]::-webkit-slider-runnable-track{ height: 6px; background: #6b6b6b; border-radius: 4px; }\n#font-modal input[type="range"]::-webkit-slider-thumb{ -webkit-appearance: none; width: 16px; height:16px; border-radius:50%; background:#bfbfbf; border:1px solid #eaeaea; margin-top: -5px; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }\n#font-modal input[type="range"]::-moz-range-track{ height:6px; background:#6b6b6b; border-radius:4px; }\n#font-modal input[type="range"]::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:#bfbfbf; border:1px solid #eaeaea; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }\n';
+                        document.head.appendChild(style);
+                    }
+                }
+                const range = document.getElementById('font-range');
+                if (!range) { console.warn('font-range 未找到'); return; }
+                range.value = (typeof textFontLevel !== 'undefined' && textFontLevel) ? textFontLevel : 2;
+                modal.style.display = 'block';
+                // 居中到主viewport并绑定自适应
+                try {
+                    requestAnimationFrame(() => {
+                        if (typeof fitModalToViewport === 'function') fitModalToViewport(modal);
+                        if (typeof bindModalAutoFit === 'function') bindModalAutoFit(modal);
+                    });
+                } catch (e) { }
+                // 绑定事件（只绑定一次）
+                if (!range._bound) {
+                    range.addEventListener('input', onFontLevelChange);
+                    range._bound = true;
+                }
+                applyFontLevel(range.value | 0);
+            }
+
+            function closeFontModal() {
+                const modal = document.getElementById('font-modal');
+                modal.style.display = 'none';
+                modal._unbindFit && modal._unbindFit();
+            }
+
+            function onFontLevelChange(e) {
+                const lvl = parseInt(e.target.value, 10) || 2;
+                applyFontLevel(lvl);
+                // 持久化到内存与存档
+                textFontLevel = lvl;
+                // if (typeof syncGameDataFromVariables === 'function') syncGameDataFromVariables();
+                // if (typeof saveGameData === 'function') { try { saveGameData(); } catch(_){} }
+            }
+
+            function applyFontLevel(level) {
+                // 基于基础字号步进：14px为第二档的基准，±2px 步进
+                const base = 14; // 当前默认字号
+                const delta = (level - 2) * 2; // 每档±2px
+                const size = base + delta;
+                const story = document.getElementById('story-text');
+                if (story) story.style.fontSize = size + 'px';
+            }
+
+            // 重生成按钮：删除最后一条回复并重新触发生成
+            async function handleRegenerate() {
+                showConfirmModal('Tái tạo lại', 'Đạo hữu có muốn tái tạo lại câu hồi đáp?', async () => {
+                    const renderFunc = getRenderFunction();
+                    if (renderFunc) {
+                        await renderFunc('/del 1 | /trigger');
+                    }
+                });
+            }
+
+            // 根据inputEnable控制自由行动输入框、发送按钮、跳过一周按钮和返回天山派按钮
+            function updateFreeActionInputState() {
+                const inputElement = document.getElementById('free-action-input');
+                const sendButton = document.getElementById('free-action-send-btn');
+                const regenerateBtn = document.getElementById('regenerate-btn');
+                const skipWeekBtn = document.getElementById('skip-week-btn');
+                const slgReturnBtn = document.getElementById('slg-return-btn');
+
+                if (inputEnable === 0) {
+                    // 禁用输入框和按钮
+                    if (inputElement) {
+                        inputElement.disabled = true;
+                        inputElement.placeholder = 'Hiện tại không thể nhập';
+                        inputElement.style.opacity = '0.5';
+                        inputElement.style.cursor = 'not-allowed';
+                    }
+                    if (sendButton) {
+                        sendButton.disabled = true;
+                        sendButton.style.opacity = '0.5';
+                        sendButton.style.cursor = 'not-allowed';
+                    }
+                    if (regenerateBtn) {
+                        regenerateBtn.disabled = true;
+                        regenerateBtn.style.opacity = '0.5';
+                        regenerateBtn.style.cursor = 'not-allowed';
+                    }
+                    // 禁用跳过一周按钮
+                    if (skipWeekBtn) {
+                        skipWeekBtn.disabled = true;
+                        skipWeekBtn.style.opacity = '0.5';
+                        skipWeekBtn.style.cursor = 'not-allowed';
+                    }
+                    // 禁用返回天山派按钮
+                    if (slgReturnBtn) {
+                        slgReturnBtn.disabled = true;
+                        slgReturnBtn.style.opacity = '0.5';
+                        slgReturnBtn.style.cursor = 'not-allowed';
+                    }
+                } else {
+                    // 启用输入框和按钮
+                    if (inputElement) {
+                        inputElement.disabled = false;
+                        inputElement.placeholder = 'Nhập nội dung hành động tự do';
+                        inputElement.style.opacity = '1';
+                        inputElement.style.cursor = '';
+                    }
+                    if (sendButton) {
+                        sendButton.disabled = false;
+                        sendButton.style.opacity = '1';
+                        sendButton.style.cursor = '';
+                    }
+                    if (regenerateBtn) {
+                        regenerateBtn.disabled = false;
+                        regenerateBtn.style.opacity = '1';
+                        regenerateBtn.style.cursor = '';
+                    }
+                    // 启用跳过一周按钮
+                    if (skipWeekBtn) {
+                        skipWeekBtn.disabled = false;
+                        skipWeekBtn.style.opacity = '1';
+                        skipWeekBtn.style.cursor = '';
+                    }
+                    // 启用返回天山派按钮
+                    if (slgReturnBtn) {
+                        slgReturnBtn.disabled = false;
+                        slgReturnBtn.style.opacity = '1';
+                        slgReturnBtn.style.cursor = '';
+                    }
+                }
+            }
+
+            async function initializeOrSync() {
+                await loadOrInitGameData();
+                console.log('初始化完成');
+                // 初始化：仅在SLG模式渲染加载图层兜底；普通模式移除SLG全局隐藏
+                try {
+                    if (GameMode === 1) {
+                        try { document.body.classList.add('slg-global'); } catch (e) { }
+                        const viewport = document.getElementById('main-viewport');
+                        if (viewport && !viewport.querySelector('.slg-loading-layer')) {
+                            const loading = document.createElement('div');
+                            loading.className = 'slg-loading-layer';
+                            const spinner = document.createElement('div');
+                            spinner.className = 'slg-loading-spinner';
+                            const text = document.createElement('div');
+                            text.className = 'slg-loading-text';
+                            text.textContent = '场景加载中';
+                            loading.appendChild(spinner);
+                            loading.appendChild(text);
+                            viewport.insertBefore(loading, viewport.firstChild);
+                        }
+                    } else {
+                        try { document.body.classList.remove('slg-global'); } catch (e) { }
+                        const viewport = document.getElementById('main-viewport');
+                        const old = viewport ? viewport.querySelector('.slg-loading-layer') : null;
+                        if (old) old.remove();
+                    }
+                } catch (e) { }
+                checkAllValueRanges();
+
+                // 初始化季节
+                seasonStatus = calculateSeason(currentWeek);
+
+                // 更新场景背景
+                updateSceneBackgrounds();
+                updateAllDisplays();
+                setupLocationEvents();
+                if (typeof setupMapHitAreas === 'function') {
+                    setupMapHitAreas();
+                }
+                setupMessageListeners();
+
+                if (isInRenderEnvironment()) {
+                    const refreshBtn = document.querySelector('.refresh-npc-btn');
+                    if (refreshBtn) {
+                        refreshBtn.style.display = 'none';
+                    }
+                }
+
+                if (userLocation === 'tianshanpai') {
+                    // 先移除所有场景的active类
+                    const scenes = document.querySelectorAll('.scene');
+                    scenes.forEach(scene => {
+                        scene.classList.remove('active');
+                    });
+                    // 然后只激活地图场景
+                    document.getElementById('map-scene').classList.add('active');
+                    if (typeof setupMapHitAreas === 'function') {
+                        setupMapHitAreas();
+                    }
+                    //switchScene('map');
+                } else {
+                    switchScene(userLocation);
+                }
+                // 新增：初始化时更新SLG返回按钮显示
+                updateSLGReturnButton();
+                updateCgToggleLabel();
+                // 初始化UI风格
+                updateUIStyleLabel();
+                if (typeof applyUIStyle === 'function') {
+                    applyUIStyle((typeof uiStyle !== 'undefined') ? uiStyle : 0);
+                }
+                // 初始化完成后应用字体档位
+                try { applyFontLevel((typeof textFontLevel !== 'undefined' && textFontLevel) ? textFontLevel : 2); } catch (_) { }
+                // 初始化时更新自由行动输入框状态
+                updateFreeActionInputState();
+                /* === 新增 === */
+                window.__initDone = true;
+                if (window.__pendingTemplateVars) {
+                    const cached = window.__pendingTemplateVars;
+                    window.__pendingTemplateVars = null;
+                    updateTemplateVariables(cached);   // 现在再解析一次，绝不会被 sync 覆盖
+                }
+            }
+
+            try {
+                if (window.parent) {
+                    const inputElement = window.parent.document.getElementById('send_textarea');
+                    const sendButton = window.parent.document.getElementById('send_button');
+
+                    if (inputElement) {
+                        inputElement.addEventListener('keydown', function (e) {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                localState.turnUpdateApplied = false;
+                            }
+                        });
+                    }
+
+                    if (sendButton) {
+                        sendButton.addEventListener('click', function () {
+                            localState.turnUpdateApplied = false;
+                        });
+                    }
+                }
+            } catch (error) {
+            }
+            window.showPlayerStats = showPlayerStats;
+            window.showRelationships = showRelationships;
+            window.skipWeek = skipWeek;
+            window.performAction = performAction;
+            window.refreshNpcLocations = refreshNpcLocations;
+            window.backToMap = backToMap;
+            window.closeModal = closeModal;
+            window.sendInteraction = sendInteraction;
+            window.addAttack = addAttack;
+            window.addHP = addHP;
+            window.npcAction = npcAction;
+            window.goToLocation = goToLocation;
+            window.sendFreeAction = sendFreeAction;
+            window.startBattle = startBattle;
+            window.fleeBattle = fleeBattle;
+            window.goToPage = goToPage;
+            window.prevPage = prevPage;
+            window.nextPage = nextPage;
+            window.toggleStoryExpand = toggleStoryExpand;
+            window.returnFromSLG = returnFromSLG;
+            window.toggleNpcVisibility = toggleNpcVisibility;
+            window.giveGift = giveGift;
+            window.toggleDropdown = toggleDropdown;
+            window.saveGame = saveGame;
+            window.loadGame = loadGame;
+            window.showDifficultySettings = showDifficultySettings;
+            window.saveDifficulty = saveDifficulty;
+            window.closeDifficultyModal = closeDifficultyModal;
+            window.showCheatMode = showCheatMode;
+            window.saveCheatValues = saveCheatValues;
+            window.closeCheatModal = closeCheatModal;
+            window.showInventory = showInventory;
+            window.showEquipment = showEquipment;
+            window.closeInventoryModal = closeInventoryModal;
+            window.closeEquipmentModal = closeEquipmentModal;
+            window.showTrading = showTrading;
+            window.buyItem = buyItem;
+            window.sellItem = sellItem;
+            window.closeTrading = closeTrading;
+            window.showShopItemDetail = showShopItemDetail;
+            window.buyItemFromDetail = buyItemFromDetail;
+            window.closeShopDetailModal = closeShopDetailModal;
+            window.showLastUserInput = showLastUserInput;
+            window.showHistorySummary = showHistorySummary;
+            window.closeHistorySummaryModal = closeHistorySummaryModal;
+            window.toggleEditMode = toggleEditMode;
+            window.saveEditedInput = saveEditedInput;
+            window.cancelEdit = cancelEdit;
+            window.closeLastInputModal = closeLastInputModal;
+            window.showWorldMap = showWorldMap;
+            window.toggleCgContent = toggleCgContent;
+            window.toggleCompressSummary = toggleCompressSummary;
+            window.showFontSettings = showFontSettings;
+            window.openPlayGuide = openPlayGuide;
+            window.closeFontModal = closeFontModal;
+            window.toggleUIStyle = toggleUIStyle;
+            // 暴露 updateFreeActionInputState 到全局，供 game-events.js 调用
+            window.updateFreeActionInputState = updateFreeActionInputState;
+            window.handleRegenerate = handleRegenerate;
+            initializeOrSync();
+        });
+
+        // ========== 框选叠加层函数 ==========
+        // 显示框选叠加层
+        function showLocationSelectionOverlay(locationId) {
+            const overlay = document.getElementById('location-selection-overlay');
+            if (!overlay) return;
+
+            // 获取对应地点的标签元素
+            const locationLabel = document.getElementById(locationId);
+            if (!locationLabel) return;
+
+            // 获取标签在 map-scene 中的相对位置
+            const mapScene = document.getElementById('map-scene');
+            if (!mapScene) return;
+
+            const mapRect = mapScene.getBoundingClientRect();
+            const labelRect = locationLabel.getBoundingClientRect();
+
+            // 计算相对于 map-scene 的中心位置
+            const centerX = labelRect.left - mapRect.left + labelRect.width / 2;
+            const centerY = labelRect.top - mapRect.top + labelRect.height / 2;
+
+            // 设置叠加层位置（以标签为中心）
+            overlay.style.left = centerX + 'px';
+            overlay.style.top = centerY + 'px';
+            overlay.classList.add('show');
+        }
+
+        // 隐藏框选叠加层
+        function hideLocationSelectionOverlay() {
+            const overlay = document.getElementById('location-selection-overlay');
+            if (overlay) {
+                overlay.classList.remove('show');
+            }
+        }
+
+        // ========== 建筑轮廓与热区（SVG） ==========
+        function setupMapHitAreas() {
+            try {
+                const svg = document.getElementById('map-hit-areas');
+                if (!svg) return;
+
+                if (!document.getElementById('map-hit-areas-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'map-hit-areas-style';
+                    style.textContent = `
+                    #map-hit-areas { pointer-events: none; }
+                    #map-hit-areas polygon {
+                        fill: transparent;
+                        stroke: rgba(255,255,255,0);
+                        stroke-width: 2.5;
+                        vector-effect: non-scaling-stroke;
+                        pointer-events: all;
+                        transition: stroke 120ms, stroke-width 120ms, filter 120ms;
+                    }
+                    /* 悬停/点击高亮样式现在由外部CSS（game-styles.css / game-styles-theme.css）根据UI风格控制 */
+                    @media (max-width: 600px) {
+                        #map-hit-areas polygon { stroke-width: 1.6; }
+                    }
+                    .scene.slg-mode #map-hit-areas { pointer-events: none; }
+                `;
+                    document.head.appendChild(style);
+                }
+
+                // 新增：创建框选图片叠加层元素（若不存在）
+                let selectionOverlay = document.getElementById('location-selection-overlay');
+                if (!selectionOverlay) {
+                    selectionOverlay = document.createElement('div');
+                    selectionOverlay.id = 'location-selection-overlay';
+                    selectionOverlay.className = 'location-selection-overlay';
+                    document.getElementById('map-scene').appendChild(selectionOverlay);
+                }
+
+                // 新增：点击地图空白处隐藏框选
+                const mapScene = document.getElementById('map-scene');
+                if (mapScene && !mapScene._selectionClickBound) {
+                    mapScene.addEventListener('click', (e) => {
+                        // 如果点击的是地图空白处（不是多边形），隐藏框选
+                        if (!e.target.closest('polygon') && typeof uiStyle !== 'undefined' && uiStyle === 0) {
+                            hideLocationSelectionOverlay();
+                            window._selectionLocked = false;
+                        }
+                    });
+                    mapScene._selectionClickBound = true;
+                }
+
+                setMapHitAreasViewBox();
+
+                const buildingPolygons = [
+                    { id: 'yishiting', name: '议事厅', points: '788,236 792,203 807,193 798,184 813,173 821,161 827,152 828,133 823,123 814,118 807,113 818,112 828,107 837,100 844,89 849,81 844,71 850,65 853,74 860,80 868,80 881,83 894,86 908,83 912,76 915,68 921,73 920,80 917,84 920,91 928,97 933,102 943,104 949,106 946,112 941,119 937,125 927,132 924,144 925,152 933,158 941,158 949,158 943,167 940,178 938,188 937,193 949,193 951,196 951,204 950,217 949,223 943,233 940,239 936,249 928,251 920,251 891,251 859,246 844,246 827,242 810,242 798,242 786,242' },
+                    { id: 'yanwuchang', name: '演武场', points: '776,721 537,630 705,400 876,445 778,714' },
+                    { id: 'nandizi', name: '男弟子房', points: '911,419 917,385 888,377 917,301 923,294 928,283 940,248 937,239 957,239 963,219 960,207 996,196 998,183 1004,184 1006,196 1031,210 1041,209 1035,219 1037,245 1053,251 1064,248 1063,256 1069,306 1079,309 1070,320 1061,316 1073,404 1079,410 1070,413 1057,407 1047,407 1041,430 1037,439 978,430 918,420' },
+                    { id: 'nvdizi', name: '女弟子房', points: '649,374 601,362 566,353 549,349 545,317 523,309 543,297 558,284 558,256 545,251 530,242 542,241 555,239 579,217 578,201 585,193 590,201 597,204 620,199 633,184 636,174 642,170 647,177 647,190 662,203 697,213 692,220 682,230 688,256 701,264 716,262 724,261 720,274 708,283 701,288 705,314 691,330 681,342 665,358 653,369' },
+                    { id: 'cangjingge', name: '藏经阁', points: '220,410 213,368 194,361 213,355 219,346 222,338 202,329 190,323 187,317 202,311 200,307 190,301 205,298 215,291 219,288 218,269 202,262 196,254 209,255 218,251 219,242 210,238 207,232 216,230 222,223 222,213 218,204 207,193 205,184 215,191 225,201 248,193 264,193 286,187 299,183 309,180 312,168 317,173 316,181 315,188 319,199 329,203 341,207 349,210 358,210 346,216 342,225 344,233 349,236 358,233 362,230 358,238 352,245 355,262 364,265 372,265 383,259 384,268 378,281 384,287 393,285 399,285 393,291 386,296 393,303 401,303 407,300 412,296 412,303 413,310 420,320 427,320 435,320 427,327 425,335 422,340 416,346 419,356 419,364 422,368 423,379 425,390 422,395 413,401 404,406 388,416 377,424 367,430 357,430 341,427 331,420 325,416 319,420 312,424 297,424 270,417 248,414 228,410' },
+                    { id: 'gongtian', name: '公田', points: '247,448 315,476 348,481 377,491 396,492 393,501 268,604 89,524 186,478 245,450' },
+                    { id: 'tiejiangpu', name: '铁匠铺', points: '1226,691 1219,673 1215,659 1192,657 1179,615 1185,595 1200,591 1192,579 1212,540 1205,529 1212,529 1218,531 1250,524 1255,514 1263,511 1264,523 1264,531 1287,546 1299,576 1309,600 1321,618 1335,639 1345,647 1347,652 1334,653 1325,650 1315,663 1309,675 1302,688 1299,696 1293,702 1279,699 1250,694 1234,692' },
+                    { id: 'huofang', name: '伙房', points: '879,704 888,639 868,630 869,618 882,618 915,459 909,453 912,449 933,450 954,445 975,433 991,450 1008,461 1030,471 1035,474 1033,478 1027,478 1027,511 1025,546 1027,586 1030,624 1030,653 1038,659 1041,672 1030,679 1012,672 998,731 885,707' },
+                    { id: 'shanmen', name: '山门', points: '565,725 525,811 501,869 473,914 440,969 424,990 552,993 565,954 586,902 607,841 628,792 644,753 571,729' },
+                    { id: 'houshan', name: '后山', points: '1457,141 1439,142 1429,149 1412,168 1406,184 1394,201 1387,214 1376,213 1368,228 1363,239 1354,245 1345,242 1342,236 1339,228 1339,219 1329,219 1322,219 1313,223 1310,230 1310,236 1310,245 1305,252 1300,255 1284,290 1274,300 1264,303 1258,317 1247,320 1232,351 1218,375 1199,407 1283,448 1368,450 1458,449 1458,148' },
+                    { id: 'danfang', name: '丹房', points: '494,579 462,573 438,569 416,563 399,495 374,485 393,478 407,471 417,459 520,381 540,361 543,352 548,352 566,375 584,387 607,393 603,400 608,469 578,501 542,536 500,578' }
+                ];
+
+                svg.innerHTML = '';
+                buildingPolygons.forEach(b => {
+                    const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    p.setAttribute('points', b.points);
+                    p.dataset.location = b.id;
+
+                    // 新增：悬浮事件 - 古风UI时显示框选图片
+                    p.addEventListener('mouseenter', (e) => {
+                        if (typeof uiStyle !== 'undefined' && uiStyle === 0) {
+                            // 如果没有被点击锁定，则显示框选
+                            if (!window._selectionLocked) {
+                                showLocationSelectionOverlay(b.id);
+                            }
+                        }
+                    });
+
+                    p.addEventListener('mouseleave', (e) => {
+                        if (typeof uiStyle !== 'undefined' && uiStyle === 0) {
+                            // 如果没有被点击锁定，则隐藏框选
+                            if (!window._selectionLocked) {
+                                hideLocationSelectionOverlay();
+                            }
+                        }
+                    });
+
+                    p.addEventListener('click', (e) => {
+                        if (typeof uiStyle !== 'undefined' && uiStyle === 0) {
+                            // 古风UI：持续显示框选图片，锁定状态
+                            showLocationSelectionOverlay(b.id);
+                            window._selectionLocked = true;
+                            window._currentSelectedLocation = b.id;
+                        } else {
+                            // 扁平化UI：切换高亮类
+                            svg.querySelectorAll('polygon.active').forEach(n => n.classList.remove('active'));
+                            p.classList.add('active');
+                        }
+
+                        // 调起原有地点信息弹窗
+                        if (typeof showLocationInfo === 'function') {
+                            showLocationInfo(b.id, e);
+                        }
+                        e.stopPropagation();
+                    });
+                    svg.appendChild(p);
+                });
+            } catch (e) { console.warn(e); }
+        }
+
+        function setMapHitAreasViewBox() {
+            const svg = document.getElementById('map-hit-areas');
+            const vp = document.getElementById('main-viewport');
+            if (!svg || !vp) return;
+            const rect = vp.getBoundingClientRect();
+            const ratio = rect.width / rect.height || 1.46;
+            const baseH = 1000;
+            const vbW = Math.max(1, Math.round(baseH * ratio));
+            svg.setAttribute('viewBox', `0 0 ${vbW} ${baseH}`);
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+            svg.dataset.vbWidth = vbW;
+            svg.dataset.vbHeight = baseH;
+        }
+
+        (function bindResizeForViewBox() {
+            let rafId = null;
+            const onResize = () => {
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = requestAnimationFrame(() => setMapHitAreasViewBox());
+            };
+            window.addEventListener('resize', onResize, { passive: true });
+        })();
+
+        window.enableMapPointPicker = function enableMapPointPicker() {
+            const svg = document.getElementById('map-hit-areas');
+            if (!svg) { console.warn('未找到 #map-hit-areas'); return; }
+            const ns = 'http://www.w3.org/2000/svg';
+            const pt = svg.createSVGPoint();
+            const toSvg = (e) => {
+                pt.x = e.clientX; pt.y = e.clientY;
+                return pt.matrixTransform(svg.getScreenCTM().inverse());
+            };
+
+            let points = [];
+            let dots = [];
+            let guide = svg.querySelector('#__guide_poly');
+            if (!guide) {
+                guide = document.createElementNS(ns, 'polyline');
+                guide.id = '__guide_poly';
+                guide.setAttribute('fill', 'rgba(255,255,0,0.12)');
+                guide.setAttribute('stroke', '#ffd400');
+                guide.setAttribute('stroke-width', '3');
+                guide.setAttribute('vector-effect', 'non-scaling-stroke');
+                guide.style.pointerEvents = 'none';
+                svg.appendChild(guide);
+            }
+
+            const redraw = () => { guide.setAttribute('points', points.map(p => `${p.x},${p.y}`).join(' ')); };
+            const addDot = (p) => {
+                const c = document.createElementNS(ns, 'circle');
+                c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', 6);
+                c.setAttribute('fill', '#ffd400'); c.setAttribute('stroke', '#000');
+                c.setAttribute('vector-effect', 'non-scaling-stroke');
+                c.style.pointerEvents = 'none';
+                svg.appendChild(c);
+                dots.push(c);
+            };
+
+            const onClick = (e) => {
+                const p = toSvg(e);
+                const np = { x: Math.round(p.x), y: Math.round(p.y) };
+                points.push(np); addDot(np); redraw();
+            };
+            const onKey = (e) => {
+                if (e.key === 'z' || e.key === 'Z') { points.pop(); const d = dots.pop(); if (d) d.remove(); redraw(); }
+                else if (e.key === 'c' || e.key === 'C') { points = []; dots.forEach(d => d.remove()); dots = []; redraw(); console.log('已清空'); }
+                else if (e.key === 'Enter') {
+                    if (points.length >= 3) { const out = points.map(p => `${p.x},${p.y}`).join(' '); console.log('复制到 buildingPolygons.points：\n', out); }
+                    else { console.log('至少需要3个点'); }
+                }
+            };
+
+            const oldPointer = svg.style.pointerEvents;
+            svg.style.pointerEvents = 'auto';
+            svg.addEventListener('click', onClick);
+            window.addEventListener('keydown', onKey);
+            console.log('取点器就绪：点击添加点；Z 撤销，C 清空，Enter 输出 points。调用 window.disableMapPointPicker() 退出。');
+
+            window.disableMapPointPicker = function disableMapPointPicker() {
+                svg.removeEventListener('click', onClick);
+                window.removeEventListener('keydown', onKey);
+                svg.style.pointerEvents = oldPointer || '';
+                console.log('取点器已关闭');
+            };
+        };
+
+        (function wrapSwitchScene() {
+            const orig = window.switchScene;
+            if (typeof orig !== 'function') return;
+            window.switchScene = function (sceneName) {
+                const ret = orig.apply(this, arguments);
+                if (sceneName === 'map' && typeof setupMapHitAreas === 'function') {
+                    setupMapHitAreas();
+                }
+                return ret;
+            };
+        })();
+    </script>
+</body>
+
+</html>

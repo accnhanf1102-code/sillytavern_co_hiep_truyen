@@ -156,7 +156,7 @@ function showBattleGame(battleData) {
         // 兜底为旧逻辑
         if (activeScene && activeScene.id !== 'map-scene') {
             const sceneName = activeScene.id.replace('-scene', '');
-            const locationName = locationNames[sceneName];
+            const locationName = locationZHNames[sceneName];
             const dayNight = dayNightStatus === 'night' ? '夜' : '昼';
 
             if (locationName) {

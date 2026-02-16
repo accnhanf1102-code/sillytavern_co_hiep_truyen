@@ -76,6 +76,21 @@ const locationNames = {
     none: 'none'
 };
 
+const locationZHNames = {
+    yanwuchang: '演武场',
+    cangjingge: '藏经阁',
+    huofang: '伙房',
+    houshan: '后山',
+    yishiting: '议事厅',
+    tiejiangpu: '铁匠铺',
+    nandizi: '男弟子房',
+    nvdizi: '女弟子房',
+    shanmen: '山门',
+    gongtian: '公田',
+    danfang: '丹房',
+    tianshanpai: '天山派'
+};
+
 const seasonNameMap = {
     'spring': 'Mùa Xuân',
     'summer': 'Mùa Hạ',

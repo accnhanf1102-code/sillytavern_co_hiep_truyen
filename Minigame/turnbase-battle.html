@@ -1,0 +1,4236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对战系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'ZCOOL XiaoWei', 'Microsoft YaHei', sans-serif;
+            background-color: #000;
+            color: #fff;
+            overflow: hidden;
+            margin: 0;
+            /* 确保没有margin */
+            padding: 0;
+            /* 确保没有padding */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            /* 从center改为flex-start，让内容从顶部开始 */
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .game-container {
+            /* 通过JS动态设置宽高，保持4:3比例 */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            margin-top: 0;
+            /* 确保紧贴顶部 */
+            overflow: hidden;
+            /* 防止子元素溢出 */
+        }
+
+        /* 背景毛玻璃层 */
+        .game-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: inherit;
+            background-size: inherit;
+            background-position: inherit;
+            filter: blur(3px);
+            z-index: 0;
+        }
+
+        /* 背景遮罩层（让毛玻璃效果更柔和） */
+        .game-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.15);
+            z-index: 1;
+        }
+
+        .battle-scene {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: clamp(60px, 12vw, 120px);
+        }
+
+        /* 状态区样式 - 使用clamp适配不同屏幕 */
+        .player-status-area {
+            position: absolute;
+            top: clamp(5px, 1vw, 15px);
+            left: clamp(5px, 1vw, 15px);
+            width: clamp(130px, 20vw, 240px);
+            height: auto;
+            background-color: rgba(0, 0, 0, 0.85);
+            border-radius: clamp(4px, 0.5vw, 8px);
+            padding: clamp(6px, 1vw, 12px);
+            z-index: 5;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+        }
+
+        /* 名字行：包含名字和挑衅状态 */
+        .name-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: clamp(6px, 1vw, 12px);
+            margin-bottom: clamp(3px, 0.5vw, 6px);
+            border-bottom: 1px solid rgba(255, 204, 0, 0.3);
+            padding-bottom: clamp(2px, 0.3vw, 5px);
+        }
+
+        .character-name {
+            font-size: clamp(14px, 1.6vw, 20px);
+            font-weight: bold;
+            color: #ffcc00;
+            text-align: left;
+            font-family: 'Ma Shan Zheng', cursive;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+        }
+
+        .enemy-status-area {
+            position: absolute;
+            top: clamp(5px, 1vw, 15px);
+            right: clamp(5px, 1vw, 15px);
+            width: clamp(130px, 20vw, 240px);
+            height: auto;
+            background-color: rgba(0, 0, 0, 0.85);
+            border-radius: clamp(4px, 0.5vw, 8px);
+            padding: clamp(6px, 1vw, 12px);
+            z-index: 5;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+        }
+
+        /* HP和气同一行显示 */
+        .stats-row {
+            display: flex;
+            align-items: center;
+            gap: clamp(6px, 1vw, 12px);
+        }
+
+        .health-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .health-bar {
+            flex: 1;
+            height: clamp(16px, 2.2vw, 26px);
+            background-color: #333;
+            border-radius: clamp(2px, 0.3vw, 4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: visible;
+        }
+
+        .health-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: linear-gradient(to right, #ff0043, #ff6a00);
+            width: 100%;
+            transition: width 0.5s cubic-bezier(.4, 2, .6, 1);
+            border-radius: clamp(2px, 0.3vw, 4px) 0 0 clamp(2px, 0.3vw, 4px);
+        }
+
+        /* HP数字显示在血条内部 */
+        .health-text {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(10px, 1.2vw, 14px);
+            color: #fff;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8),
+                -1px -1px 2px rgba(0, 0, 0, 0.8),
+                1px -1px 2px rgba(0, 0, 0, 0.8),
+                -1px 1px 2px rgba(0, 0, 0, 0.8);
+            white-space: nowrap;
+            z-index: 2;
+        }
+
+        /* 气值显示在右边 */
+        .energy-display {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .energy-value {
+            font-size: clamp(11px, 1.3vw, 16px);
+            color: #ffcc00;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .energy-icon {
+            display: none;
+        }
+
+        /* 挑衅状态显示样式 - 显示在名字右侧 */
+        .taunt-status {
+            display: none;
+            padding: clamp(1px, 0.3vw, 3px) clamp(4px, 0.6vw, 8px);
+            background: linear-gradient(135deg, rgba(255, 60, 60, 0.9), rgba(180, 20, 20, 0.95));
+            border-radius: clamp(2px, 0.3vw, 4px);
+            font-size: clamp(9px, 1vw, 12px);
+            font-weight: bold;
+            color: #fff;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            animation: taunt-pulse 1s ease-in-out infinite;
+            border: 1px solid rgba(255, 100, 100, 0.6);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .taunt-status.active {
+            display: inline-block;
+        }
+
+        @keyframes taunt-pulse {
+            0% {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.02);
+            }
+
+            100% {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+        }
+
+        /* 顶部状态栏容器 - 改为纵向排列 */
+        .top-status-bar {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            z-index: 20;
+        }
+
+        /* 回合指示器 - 可点击显示日志 */
+        .turn-indicator {
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: clamp(6px, 0.8vw, 12px) clamp(12px, 2vw, 25px);
+            border-radius: 0 0 clamp(8px, 1.2vw, 15px) clamp(8px, 1.2vw, 15px);
+            font-size: clamp(14px, 1.8vw, 22px);
+            font-weight: bold;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-top: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+            font-family: 'Ma Shan Zheng', cursive;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .turn-indicator:hover {
+            background-color: rgba(30, 30, 30, 0.95);
+        }
+
+        .turn-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .turn-indicator::after {
+            content: '▼';
+            font-size: clamp(8px, 1vw, 12px);
+            opacity: 0.7;
+            margin-top: clamp(2px, 0.3vw, 4px);
+        }
+
+        /* 日志下拉框 */
+        .log-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: clamp(280px, 50vw, 550px);
+            max-height: 35vh;
+            background-color: rgba(0, 0, 0, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0 0 clamp(6px, 1vw, 12px) clamp(6px, 1vw, 12px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+            z-index: 19;
+            padding: clamp(8px, 1.2vw, 15px);
+        }
+
+        .log-dropdown.active {
+            display: block;
+        }
+
+        .log-dropdown p {
+            margin: clamp(3px, 0.5vw, 6px) 0;
+            padding: clamp(3px, 0.5vw, 6px) 0;
+            font-size: clamp(13px, 1.5vw, 18px);
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            line-height: 1.5;
+        }
+
+        .log-dropdown p:last-child {
+            border-bottom: none;
+        }
+
+        /* ========== 场地效果指示器 - 在回合数上方 ========== */
+        .field-effect-indicator {
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: clamp(3px, 0.5vw, 6px) clamp(12px, 2vw, 25px);
+            border-radius: 0;
+            /* 无圆角 */
+            font-size: clamp(10px, 1.2vw, 14px);
+            font-weight: bold;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-bottom: none;
+            /* 和下方回合数容器连接 */
+            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.6);
+            font-family: 'Ma Shan Zheng', cursive;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+            justify-content: center;
+        }
+
+        .field-effect-indicator.active {
+            display: flex;
+            align-items: center;
+            gap: clamp(4px, 0.6vw, 8px);
+        }
+
+        .field-effect-icon {
+            font-size: clamp(14px, 1.8vw, 22px);
+        }
+
+        .field-effect-name {
+            color: #fff;
+        }
+
+        .field-effect-timer {
+            color: #ffcc00;
+            font-size: clamp(10px, 1.2vw, 14px);
+            opacity: 0.9;
+        }
+
+        /* 场地效果颜色主题 */
+        .field-effect-indicator.killing-intent {
+            border-color: rgba(255, 60, 60, 0.6);
+            background: linear-gradient(135deg, rgba(80, 20, 20, 0.95), rgba(40, 10, 10, 0.95));
+        }
+
+        .field-effect-indicator.miasma {
+            border-color: rgba(150, 50, 200, 0.6);
+            background: linear-gradient(135deg, rgba(60, 20, 80, 0.95), rgba(30, 10, 40, 0.95));
+        }
+
+        .field-effect-indicator.fortify {
+            border-color: rgba(100, 150, 255, 0.6);
+            background: linear-gradient(135deg, rgba(20, 40, 80, 0.95), rgba(10, 20, 50, 0.95));
+        }
+
+        .field-effect-indicator.energy-tide {
+            border-color: rgba(255, 200, 50, 0.6);
+            background: linear-gradient(135deg, rgba(80, 60, 20, 0.95), rgba(50, 35, 10, 0.95));
+        }
+
+        .field-effect-indicator.melee {
+            border-color: rgba(200, 150, 100, 0.6);
+            background: linear-gradient(135deg, rgba(60, 45, 30, 0.95), rgba(35, 25, 15, 0.95));
+        }
+
+        .field-effect-indicator.rejuvenation {
+            border-color: rgba(80, 220, 120, 0.6);
+            background: linear-gradient(135deg, rgba(20, 70, 40, 0.95), rgba(10, 40, 20, 0.95));
+        }
+
+        /* 场地效果下拉介绍框 - 相对于game-container居中显示 */
+        .field-effect-dropdown {
+            display: none;
+            position: absolute;
+            top: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            max-width: 280px;
+            min-width: 180px;
+            background-color: rgba(0, 0, 0, 0.95);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: clamp(6px, 1vw, 12px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+            padding: clamp(8px, 1.5vw, 14px);
+            z-index: 100;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
+        }
+
+        /* 场地弹窗颜色主题 - 边框颜色和场地效果一致 */
+        .field-effect-dropdown.killing-intent {
+            border-color: rgba(255, 60, 60, 0.8);
+        }
+
+        .field-effect-dropdown.miasma {
+            border-color: rgba(150, 50, 200, 0.8);
+        }
+
+        .field-effect-dropdown.fortify {
+            border-color: rgba(100, 150, 255, 0.8);
+        }
+
+        .field-effect-dropdown.energy-tide {
+            border-color: rgba(255, 200, 50, 0.8);
+        }
+
+        .field-effect-dropdown.melee {
+            border-color: rgba(200, 150, 100, 0.8);
+        }
+
+        .field-effect-dropdown.rejuvenation {
+            border-color: rgba(80, 220, 120, 0.8);
+        }
+
+        .field-effect-dropdown.active {
+            display: block;
+        }
+
+        .field-effect-dropdown-title {
+            font-size: clamp(14px, 1.8vw, 20px);
+            color: #ffcc00;
+            margin-bottom: clamp(6px, 1vw, 12px);
+            padding-bottom: clamp(4px, 0.6vw, 8px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: clamp(6px, 1vw, 10px);
+        }
+
+        .field-effect-dropdown-desc {
+            font-size: clamp(11px, 1.3vw, 15px);
+            color: #ccc;
+            line-height: 1.5;
+            font-family: 'ZCOOL XiaoWei', sans-serif;
+        }
+
+        .field-effect-dropdown-effect {
+            margin-top: clamp(6px, 1vw, 10px);
+            padding: clamp(5px, 0.8vw, 10px);
+            background: rgba(255, 255, 255, 0.08);
+            border-left: 2px solid #ffcc00;
+            font-size: clamp(9px, 1.1vw, 13px);
+            color: #fff;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        /* 场地效果触发动画 */
+        @keyframes field-effect-appear {
+            0% {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .field-effect-indicator.appearing {
+            animation: field-effect-appear 0.5s ease-out;
+        }
+
+        /* 场地效果全屏提示 */
+        .field-effect-announce {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 500;
+            pointer-events: none;
+        }
+
+        .field-effect-announce.active {
+            display: flex;
+            animation: announce-fade 2s ease-out forwards;
+        }
+
+        @keyframes announce-fade {
+            0% {
+                opacity: 0;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .field-effect-announce-content {
+            text-align: center;
+            animation: announce-scale 2s ease-out;
+        }
+
+        @keyframes announce-scale {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            20% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+
+            30% {
+                transform: scale(1);
+            }
+
+            80% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .field-effect-announce-icon {
+            font-size: clamp(48px, 10vw, 80px);
+            margin-bottom: clamp(10px, 2vw, 20px);
+        }
+
+        .field-effect-announce-name {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: clamp(32px, 6vw, 56px);
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 200, 50, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        /* 命令区域 - 水墨风格 */
+        .command-area {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+        }
+
+        .command-label {
+            margin-bottom: 10px;
+            font-size: 24px;
+            color: #eee;
+            text-align: center;
+            font-family: 'Ma Shan Zheng', cursive;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .command-buttons {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        /* 指令按钮浮动样式 - 60%屏幕宽度，靠右放置 */
+        .command-buttons-floating {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: row;
+            gap: clamp(3px, 0.5vw, 8px);
+            padding: clamp(4px, 0.6vw, 10px);
+            z-index: 10;
+            justify-content: flex-end;
+            flex-wrap: nowrap;
+            width: 60%;
+            max-width: 60vw;
+        }
+
+        .command-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            /* 使用aspect-ratio确保高度始终是宽度的2倍 */
+            aspect-ratio: 1 / 2;
+            height: auto;
+            margin: 0;
+            padding: clamp(4px, 0.6vw, 10px);
+            border-radius: clamp(4px, 0.6vw, 8px);
+            background: #111 !important;
+            color: #fff !important;
+            border: 1px solid #333;
+            box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: visible;
+        }
+
+        .command-btn::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            z-index: -1;
+            border-radius: clamp(4px, 0.6vw, 8px);
+        }
+
+        .command-btn:hover:not(.disabled) {
+            background: #222 !important;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+            border-color: #666;
+        }
+
+        .command-btn:active:not(.disabled) {
+            background: #333 !important;
+            transform: translateY(0);
+        }
+
+        .command-btn.selected {
+            background: linear-gradient(135deg, #1a3a75, #0c1f3e) !important;
+            border-color: #3a6cbf;
+            box-shadow: 0 0 15px rgba(58, 108, 191, 0.6);
+        }
+
+        /* 逃跑按钮特殊样式 */
+        .command-btn.escape-btn {
+            background: linear-gradient(135deg, #4a1a1a, #2a0a0a) !important;
+            border-color: #733;
+        }
+
+        .command-btn.escape-btn:hover:not(.disabled) {
+            background: linear-gradient(135deg, #5a2a2a, #3a1a1a) !important;
+            border-color: #944;
+        }
+
+        .command-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 键位提示自适应 */
+        .command-btn .key-hint {
+            position: absolute;
+            top: clamp(2px, 0.3vw, 5px);
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-size: clamp(8px, 1vw, 12px);
+            padding: clamp(1px, 0.2vw, 3px) clamp(2px, 0.4vw, 5px);
+            border-radius: clamp(2px, 0.2vw, 4px);
+            line-height: 1;
+        }
+
+        /* 按钮名称 - 纵向排列 */
+        .command-btn .btn-name {
+            display: block !important;
+            font-size: clamp(14px, 2vw, 22px) !important;
+            font-weight: bold !important;
+            font-family: 'Ma Shan Zheng', cursive !important;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+            text-align: center !important;
+            line-height: 1.2 !important;
+            margin-top: clamp(12px, 2vw, 20px) !important;
+            writing-mode: vertical-rl !important;
+            text-orientation: upright !important;
+            letter-spacing: 0.15em !important;
+            white-space: nowrap !important;
+        }
+
+        /* 战斗日志 - 隐藏（改为下拉框显示） */
+        .battle-log {
+            display: none;
+        }
+
+        /* 确认弹窗 - 手机优化 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+
+        .modal-content {
+            width: clamp(240px, 60vw, 320px);
+            max-width: 85vw;
+            border-radius: clamp(4px, 1vw, 8px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            color: #fff;
+            position: relative;
+            border: 2px solid #553c28;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: clamp(6px, 2vw, 12px);
+            background-color: rgba(0, 0, 0, 0.6);
+            font-size: clamp(14px, 3.2vw, 20px);
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-family: 'Ma Shan Zheng', cursive;
+            /* 添加黑色描边效果 */
+            text-shadow:
+                -1px -1px 1px #000,
+                1px -1px 1px #000,
+                -1px 1px 1px #000,
+                1px 1px 1px #000,
+                2px 2px 3px rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-body {
+            padding: clamp(8px, 2.5vw, 15px);
+            font-size: clamp(12px, 2.8vw, 16px);
+            text-align: center;
+            line-height: 1.4;
+            /* 添加与按钮相同的字体样式 */
+            font-family: 'Ma Shan Zheng', cursive;
+            font-weight: bold;
+            color: #fff;
+            /* 黑色描边效果 */
+            text-shadow:
+                -1px -1px 1px #000,
+                1px -1px 1px #000,
+                -1px 1px 1px #000,
+                1px 1px 1px #000,
+                2px 2px 3px rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-footer {
+            padding: clamp(6px, 2vw, 12px);
+            display: flex;
+            justify-content: space-around;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            gap: clamp(6px, 1.5vw, 12px);
+        }
+
+        .modal-footer button {
+            padding: clamp(4px, 1.5vw, 8px) clamp(10px, 3vw, 16px);
+            border: none;
+            border-radius: clamp(3px, 0.8vw, 6px);
+            cursor: pointer;
+            font-size: clamp(11px, 2.5vw, 14px);
+            font-family: 'ZCOOL XiaoWei', sans-serif;
+            transition: all 0.3s;
+            flex: 1;
+            min-height: clamp(24px, 5vw, 36px);
+        }
+
+        #confirm-action {
+            background: linear-gradient(to bottom, #5c3b1c, #34210f);
+            color: white;
+            border: 1px solid #7c5a3d;
+        }
+
+        #confirm-action:hover {
+            background: linear-gradient(to bottom, #6c4a2b, #3e2914);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #cancel-action {
+            background: linear-gradient(to bottom, #444, #222);
+            color: #ddd;
+            border: 1px solid #666;
+        }
+
+        #cancel-action:hover {
+            background: linear-gradient(to bottom, #555, #333);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 动画效果 */
+        @keyframes attack {
+            0% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(40px);
+            }
+
+            50% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes enemy-attack {
+            0% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-40px);
+            }
+
+            50% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes hit {
+            0% {
+                filter: brightness(1);
+            }
+
+            25% {
+                filter: brightness(3) saturate(2);
+            }
+
+            50% {
+                filter: brightness(1);
+            }
+
+            100% {
+                filter: brightness(1);
+            }
+        }
+
+        @keyframes defend {
+            0% {
+                filter: brightness(1);
+            }
+
+            50% {
+                filter: brightness(1.5) hue-rotate(120deg);
+            }
+
+            100% {
+                filter: brightness(1);
+            }
+        }
+
+        @keyframes special {
+            0% {
+                filter: brightness(1);
+            }
+
+            25% {
+                filter: brightness(2) saturate(2) hue-rotate(270deg);
+            }
+
+            50% {
+                filter: brightness(1.5) saturate(1.5) hue-rotate(180deg);
+            }
+
+            75% {
+                filter: brightness(2) saturate(2) hue-rotate(90deg);
+            }
+
+            100% {
+                filter: brightness(1);
+            }
+        }
+
+        .player-attack {
+            animation: attack 0.6s ease;
+        }
+
+        .enemy-attack {
+            animation: enemy-attack 0.6s ease;
+        }
+
+        .player-hit {
+            animation: hit 0.6s ease;
+        }
+
+        .enemy-hit {
+            animation: hit 0.6s ease;
+        }
+
+        .player-defend {
+            animation: defend 1s ease;
+        }
+
+        .enemy-defend {
+            animation: defend 1s ease;
+        }
+
+        .player-special {
+            animation: special 1s ease;
+        }
+
+        .enemy-special {
+            animation: special 1s ease;
+        }
+
+        /* 画面晃动动画 */
+        @keyframes shake {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            20% {
+                transform: translate(-10px, 0);
+            }
+
+            40% {
+                transform: translate(10px, 0);
+            }
+
+            60% {
+                transform: translate(-10px, 0);
+            }
+
+            80% {
+                transform: translate(10px, 0);
+            }
+
+            100% {
+                transform: translate(0, 0);
+            }
+        }
+
+        .shake {
+            animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        /* 受击红色边缘高亮动画 */
+        @keyframes damage-flash {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+            }
+
+            30% {
+                box-shadow: 0 0 0 20px rgba(255, 0, 0, 0.5);
+            }
+
+            60% {
+                box-shadow: 0 0 0 40px rgba(255, 0, 0, 0.2);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+            }
+        }
+
+        .damage-flash {
+            animation: damage-flash 0.5s;
+        }
+
+        /* 主角图层 */
+        .player-portrait-layer {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 3;
+            background: none;
+            background-position: center bottom;
+            background-repeat: no-repeat;
+            background-size: contain;
+            transition: background-image 0.3s, filter 0.2s ease;
+            /* 使用CSS变量控制描边颜色，默认白色 */
+            --glow-color: 255, 255, 255;
+            --glow-intensity: 0.8;
+            filter: drop-shadow(0 0 1px rgba(var(--glow-color), var(--glow-intensity))) drop-shadow(0 0 2px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.6))) drop-shadow(0 0 3px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.4)));
+        }
+
+        .player-portrait-layer.shake {
+            animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        /* NPC图层 */
+        .npc-portrait-layer {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 3;
+            background: none;
+            background-position: center bottom;
+            background-repeat: no-repeat;
+            background-size: contain;
+            transition: background-image 0.3s, filter 0.2s ease;
+            /* 使用CSS变量控制描边颜色，默认白色 */
+            --glow-color: 255, 255, 255;
+            --glow-intensity: 0.8;
+            filter: drop-shadow(0 0 1px rgba(var(--glow-color), var(--glow-intensity))) drop-shadow(0 0 2px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.6))) drop-shadow(0 0 3px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.4)));
+        }
+
+        .npc-portrait-layer.shake {
+            animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        /* 攻击描边效果 - 黄色（轻攻击） */
+        .player-portrait-layer.glow-yellow,
+        .npc-portrait-layer.glow-yellow {
+            --glow-color: 255, 215, 0;
+            --glow-intensity: 1;
+            filter: drop-shadow(0 0 1px rgba(var(--glow-color), var(--glow-intensity))) drop-shadow(0 0 2px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.6))) drop-shadow(0 0 3px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.4)));
+        }
+
+        /* 攻击描边效果 - 橙色（重攻击） */
+        .player-portrait-layer.glow-orange,
+        .npc-portrait-layer.glow-orange {
+            --glow-color: 255, 140, 0;
+            --glow-intensity: 1;
+            filter: drop-shadow(0 0 1px rgba(var(--glow-color), var(--glow-intensity))) drop-shadow(0 0 2px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.6))) drop-shadow(0 0 3px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.4)));
+        }
+
+        /* 攻击描边效果 - 红色（绝招） */
+        .player-portrait-layer.glow-red,
+        .npc-portrait-layer.glow-red {
+            --glow-color: 255, 48, 48;
+            --glow-intensity: 1;
+            filter: drop-shadow(0 0 1px rgba(var(--glow-color), var(--glow-intensity))) drop-shadow(0 0 2px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.6))) drop-shadow(0 0 3px rgba(var(--glow-color), calc(var(--glow-intensity) * 0.4)));
+        }
+
+        .screen-flash {
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            background: rgba(255, 0, 0, 0.3);
+            box-shadow: 0 0 0 20px rgba(255, 0, 0, 0.5), 0 0 60px 40px rgba(255, 0, 0, 0.2) inset;
+            transition: opacity 0.2s;
+        }
+
+        .screen-flash.active {
+            opacity: 1;
+            transition: opacity 0.1s;
+        }
+
+        /* ========== 战斗特效图层 ========== */
+        /* 特效基础样式 */
+        .battle-effect {
+            position: absolute;
+            pointer-events: none;
+            visibility: hidden;
+            z-index: 5;
+            /* 高于立绘层z-index:3，确保特效可见 */
+        }
+
+        .battle-effect.active {
+            visibility: visible;
+        }
+
+        /* 嘴炮特效 - 玩家（左侧，头部上方偏右） */
+        /* 嘴炮是透明PNG，不需要mix-blend-mode */
+        .player-taunt-effect {
+            left: 23%;
+            top: 37%;
+            /* width: clamp(80px, 15vw, 180px); */
+            width: 15%;
+            height: auto;
+            transform: scaleX(1);
+        }
+
+        /* 嘴炮特效 - 敌人（右侧，头部上方偏左） */
+        .enemy-taunt-effect {
+            right: 23%;
+            top: 27%;
+            /* width: clamp(100px, 18vw, 220px); */
+            width: 12%;
+            height: auto;
+            transform: scaleX(-1);
+        }
+
+        /* 集气特效 - 玩家（左侧脚下） */
+        .player-gather-effect {
+            left: -13%;
+            bottom: -21%;
+            /* width: clamp(240px, 44vw, 560px); */
+            width: 55%;
+            height: auto;
+        }
+
+        /* 集气特效 - 敌人（右侧脚下） */
+        .enemy-gather-effect {
+            right: -3%;
+            bottom: 4%;
+            /* width: clamp(188px, 35vw, 438px); */
+            width: 40%;
+            height: auto;
+        }
+
+        /* 攻击特效 - 玩家被击中（左侧身体中央） */
+        .player-hit-effect {
+            left: -3%;
+            top: 50%;
+            /* width: clamp(140px, 35vw, 350px); */
+            width: 40%;
+            height: auto;
+        }
+
+        /* 攻击特效 - 敌人被击中（右侧身体中央） */
+        .enemy-hit-effect {
+            right: 0%;
+            top: 35%;
+            /* width: clamp(130px, 25vw, 320px); */
+            width: 27%;
+            height: auto;
+        }
+
+        /* 特效图片样式 */
+        .battle-effect img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* 黑底光效GIF使用screen混合模式，让黑色变透明 */
+        /* 同时增加对比度，消除边缘灰色/发白问题 */
+        .player-gather-effect,
+        .enemy-gather-effect,
+        .player-hit-effect,
+        .enemy-hit-effect {
+            mix-blend-mode: screen;
+        }
+
+        .player-gather-effect img,
+        .enemy-gather-effect img,
+        .player-hit-effect img,
+        .enemy-hit-effect img {
+            mix-blend-mode: screen;
+            /* 增加对比度，让接近黑色的灰边变成纯黑（透明） */
+            filter: contrast(1.3) brightness(1.1);
+        }
+
+        #restart-game {
+            background: linear-gradient(to bottom, #5c3b1c, #34210f);
+            color: white;
+            border: 1px solid #7c5a3d;
+            padding: clamp(6px, 2vw, 12px) clamp(20px, 4vw, 32px);
+            border-radius: clamp(3px, 0.8vw, 6px);
+            cursor: pointer;
+            font-size: clamp(12px, 2.8vw, 16px);
+            font-family: 'Ma Shan Zheng', cursive;
+            transition: all 0.3s;
+            width: 100%;
+            min-height: clamp(28px, 6vw, 40px);
+        }
+
+        #restart-game:hover {
+            background: linear-gradient(to bottom, #6c4a2b, #3e2914);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        /* 移动端优化 */
+        @media (max-width: 900px) {
+            /* .command-buttons-floating {
+        width: 70vw;
+        min-width: 260px;
+        gap: clamp(2px, 0.8vw, 6px);
+        padding: clamp(2px, 0.4vw, 6px) 0 0 clamp(2px, 0.4vw, 6px);
+    } */
+
+            .command-btn .btn-name {
+                font-size: clamp(0.8rem, 2.8vw, 1.1rem);
+            }
+
+            .command-btn .key-hint {
+                font-size: clamp(0.6rem, 1.8vw, 0.9rem);
+            }
+        }
+
+        @media (max-width: 600px) {
+            /* .command-buttons-floating {
+        width: 85vw;
+        min-width: 240px;
+        gap: clamp(1px, 0.5vw, 4px);
+        padding: clamp(1px, 0.3vw, 4px) 0 0 clamp(1px, 0.3vw, 4px);
+        flex-direction: row;
+    } */
+
+            .command-btn .btn-name {
+                font-size: clamp(0.7rem, 3vw, 1rem);
+            }
+
+            .command-btn .key-hint {
+                font-size: clamp(0.5rem, 2vw, 0.8rem);
+            }
+        }
+
+        /* 超大屏幕优化 */
+        @media (min-width: 1400px) {
+            /* .command-buttons-floating {
+        width: 45vw;
+        max-width: 700px;
+    } */
+
+            .command-btn .btn-name {
+                font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+            }
+        }
+
+        /* 超小屏幕优化 */
+        @media (max-width: 480px) {
+            /* .command-buttons-floating {
+        width: 95vw;
+        min-width: 200px;
+        gap: clamp(1px, 0.2vw, 2px);
+        padding: 2px 0 0 2px;
+        flex-direction: row;
+    } */
+
+            .command-btn {
+                padding: clamp(0.2vw, 0.8vw, 1vw) clamp(0.1vw, 0.4vw, 0.6vw);
+            }
+
+            .command-btn .btn-name {
+                font-size: clamp(0.6rem, 3.5vw, 0.9rem);
+            }
+
+            .command-btn .key-hint {
+                font-size: clamp(0.4rem, 2.8vw, 0.7rem);
+                padding: clamp(0.5px, 0.1vw, 2px) clamp(2px, 0.3vw, 4px);
+            }
+        }
+
+        /* 横屏手机优化 */
+        @media (max-width: 900px) and (orientation: landscape) {
+            .battle-scene {
+                padding-bottom: clamp(60px, 10vw, 100px);
+            }
+
+            .turn-indicator {
+                top: 0;
+            }
+        }
+
+        /* 统一的弹窗按钮风格 */
+        .modal-actions {
+            display: flex;
+            gap: clamp(8px, 2vw, 14px);
+            justify-content: center;
+            padding: clamp(8px, 2vw, 14px);
+            background: rgba(0, 0, 0, 0.4);
+            border-top: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        /* 道具弹窗样式 - 全屏覆盖game-container，紧凑布局确保4个道具同屏显示 */
+        #item-modal {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .item-modal-content {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 0;
+            box-shadow: none;
+            color: #fff;
+            position: relative;
+            border: none;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(20, 15, 10, 0.98);
+            background-size: cover;
+            background-position: center;
+        }
+
+        .item-modal-header {
+            padding: 1.5vh 2vw;
+            background-color: rgba(0, 0, 0, 0.6);
+            font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+            font-family: 'Ma Shan Zheng', cursive;
+            text-shadow:
+                -1px -1px 1px #000,
+                1px -1px 1px #000,
+                -1px 1px 1px #000,
+                1px 1px 1px #000,
+                2px 2px 3px rgba(0, 0, 0, 0.8);
+            flex-shrink: 0;
+        }
+
+        .item-list {
+            padding: 1.5vh 3vw;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5vh;
+            flex: 1;
+            overflow: hidden;
+            justify-content: space-evenly;
+        }
+
+        .item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.2vh 2.5vw;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 0.6vw;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.15s ease;
+            flex: 1;
+            max-height: 16vh;
+            min-height: 0;
+        }
+
+        .item-row:hover {
+            background: rgba(60, 50, 30, 0.7);
+            border-color: rgba(255, 200, 100, 0.5);
+        }
+
+        .item-row.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3vh;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-name {
+            font-size: clamp(0.85rem, 2.2vw, 1.2rem);
+            font-weight: bold;
+            font-family: 'Ma Shan Zheng', cursive;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-desc {
+            font-size: clamp(0.6rem, 1.5vw, 0.85rem);
+            color: #bbb;
+            font-family: 'ZCOOL XiaoWei', sans-serif;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-count {
+            font-size: clamp(0.8rem, 2vw, 1.1rem);
+            color: #88ff88;
+            font-weight: bold;
+            min-width: 5vw;
+            text-align: center;
+            margin: 0 1.5vw;
+            flex-shrink: 0;
+        }
+
+        .item-count.empty {
+            color: #ff6666;
+        }
+
+        .item-use-btn {
+            padding: 0.8vh 2.5vw;
+            background: linear-gradient(135deg, #5c3b1c, #34210f);
+            color: #fff;
+            border: 1px solid #7c5a3d;
+            border-radius: 0.5vw;
+            font-size: clamp(0.75rem, 1.8vw, 1rem);
+            font-family: 'Ma Shan Zheng', cursive;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .item-use-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #7c5b3c, #4e3020);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .item-use-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .item-modal-footer {
+            padding: 1.5vh 2vw;
+            background: rgba(0, 0, 0, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .item-close-btn {
+            padding: 1vh 5vw;
+            background: linear-gradient(135deg, #444, #222);
+            color: #ddd;
+            border: 1px solid #666;
+            border-radius: 0.5vw;
+            font-size: clamp(0.8rem, 2vw, 1.1rem);
+            font-family: 'Ma Shan Zheng', cursive;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .item-close-btn:hover {
+            background: linear-gradient(135deg, #555, #333);
+        }
+
+        /* 道具使用提示样式 */
+        .item-used-hint {
+            padding: 2vh 3vw;
+            background: rgba(100, 60, 20, 0.9);
+            border: 1px solid #ffd700;
+            border-radius: 0.6vw;
+            text-align: center;
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: clamp(0.9rem, 2.2vw, 1.2rem);
+            color: #ffd700;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 横屏和小屏幕下的道具弹窗优化 */
+        @media (max-height: 500px) {
+            .item-modal-header {
+                padding: 0.8vh 2vw;
+                font-size: clamp(0.8rem, 2vw, 1rem);
+            }
+
+            .item-list {
+                padding: 0.8vh 2vw;
+                gap: 0.8vh;
+            }
+
+            .item-row {
+                padding: 0.6vh 2vw;
+                max-height: 20vh;
+            }
+
+            .item-name {
+                font-size: clamp(0.75rem, 1.8vw, 1rem);
+            }
+
+            .item-desc {
+                font-size: clamp(0.55rem, 1.2vw, 0.75rem);
+            }
+
+            .item-use-btn {
+                padding: 0.5vh 2vw;
+                font-size: clamp(0.65rem, 1.5vw, 0.85rem);
+            }
+
+            .item-modal-footer {
+                padding: 0.8vh 2vw;
+            }
+
+            .item-close-btn {
+                padding: 0.6vh 4vw;
+                font-size: clamp(0.7rem, 1.6vw, 0.9rem);
+            }
+        }
+
+        /* 极小屏幕优化 */
+        @media (max-height: 400px) {
+            .item-modal-header {
+                padding: 0.5vh 1.5vw;
+            }
+
+            .item-list {
+                padding: 0.5vh 1.5vw;
+                gap: 0.5vh;
+            }
+
+            .item-row {
+                padding: 0.4vh 1.5vw;
+            }
+
+            .item-info {
+                gap: 0;
+            }
+
+            .item-modal-footer {
+                padding: 0.5vh 1.5vw;
+            }
+        }
+
+        .modal-actions .btn {
+            min-width: clamp(90px, 20vw, 160px);
+            padding: clamp(8px, 1.8vw, 12px) clamp(14px, 2.8vw, 22px);
+            border-radius: clamp(6px, 1vw, 10px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            font-family: 'Ma Shan Zheng', cursive;
+            font-weight: bold;
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+        }
+
+        .modal-actions .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.05);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+        }
+
+        .modal-actions .btn:active {
+            transform: translateY(0);
+        }
+
+        .modal-actions .btn.btn-cancel {
+            background: linear-gradient(135deg, #2b2b2b 0%, #1a1a1a 100%);
+            border-color: #555;
+        }
+
+        .modal-actions .btn.btn-danger {
+            background: linear-gradient(135deg, #C62828 0%, #8E0000 100%);
+            border-color: #ff6b6b;
+        }
+
+        .modal-actions .btn.btn-danger:hover {
+            box-shadow: 0 8px 20px rgba(198, 40, 40, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container">
+        <!-- 主角图层 -->
+        <div class="player-portrait-layer"></div>
+        <!-- NPC图层 -->
+        <div class="npc-portrait-layer"></div>
+        <div class="screen-flash"></div>
+
+        <!-- 战斗特效图层 -->
+        <!-- 玩家特效 -->
+        <div class="battle-effect player-taunt-effect" id="player-taunt-effect">
+            <img src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/assets/image/static/嘴炮.png" alt="嘴炮">
+        </div>
+        <div class="battle-effect player-gather-effect" id="player-gather-effect">
+            <img src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/assets/image/static/集气.gif" alt="集气">
+        </div>
+        <div class="battle-effect player-hit-effect" id="player-hit-effect">
+            <img src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/assets/image/static/攻击.gif" alt="攻击">
+        </div>
+        <!-- 敌人特效 -->
+        <div class="battle-effect enemy-taunt-effect" id="enemy-taunt-effect">
+            <img src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/assets/image/static/嘴炮.png" alt="嘴炮">
+        </div>
+        <div class="battle-effect enemy-gather-effect" id="enemy-gather-effect">
+            <img src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/assets/image/static/集气.gif" alt="集气">
+        </div>
+        <div class="battle-effect enemy-hit-effect" id="enemy-hit-effect">
+            <img src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/assets/image/static/攻击.gif" alt="攻击">
+        </div>
+
+        <!-- 战斗场景 -->
+        <div class="battle-scene">
+
+            <!-- 玩家状态区 -->
+            <div class="player-status-area">
+                <div class="name-row">
+                    <div class="character-name" id="player-name">Người chơi</div>
+                    <div class="taunt-status" id="player-taunt-status">Khiêu khích</div>
+                </div>
+                <div class="stats-row">
+                    <div class="health-container">
+                        <div class="health-bar">
+                            <div class="health-fill" id="player-health"></div>
+                            <div class="health-text">
+                                <span id="player-health-value">50</span>/<span id="player-max-health">50</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="energy-display">
+                        <div class="energy-value">Khí:<span id="player-energy">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 敌人状态区 -->
+            <div class="enemy-status-area">
+                <div class="name-row">
+                    <div class="character-name" id="enemy-name">Đối thủ</div>
+                    <div class="taunt-status" id="enemy-taunt-status">Khiêu khích</div>
+                </div>
+                <div class="stats-row">
+                    <div class="health-container">
+                        <div class="health-bar">
+                            <div class="health-fill" id="enemy-health"></div>
+                            <div class="health-text">
+                                <span id="enemy-health-value">50</span>/<span id="enemy-max-health">50</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="energy-display">
+                        <div class="energy-value">Khí:<span id="enemy-energy">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 顶部状态栏 -->
+            <div class="top-status-bar">
+                <!-- 场地效果指示器（在上方） -->
+                <div class="field-effect-indicator" id="field-effect-indicator"
+                    onclick="toggleFieldEffectDropdown(event)">
+                    <span class="field-effect-icon" id="field-effect-icon">🔥</span>
+                    <span class="field-effect-name" id="field-effect-name">Sát Ý</span>
+                    <span class="field-effect-timer" id="field-effect-timer">(3)</span>
+                </div>
+
+                <!-- 回合指示器（在下方，点击显示日志） -->
+                <div class="turn-indicator" id="turn-indicator" onclick="toggleLogDropdown()">
+                    <div id="turn-text">Hiệp 1</div>
+                    <!-- 日志下拉框 -->
+                    <div class="log-dropdown" id="log-dropdown">
+                        <p>Trận đấu bắt đầu, mời chọn hành động...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 场地效果介绍下拉框 - 独立于指示器，作为game-container的直接子元素 -->
+            <div class="field-effect-dropdown" id="field-effect-dropdown">
+                <div class="field-effect-dropdown-title">
+                    <span id="field-dropdown-icon">🔥</span>
+                    <span id="field-dropdown-name">Sát Ý</span>
+                </div>
+                <div class="field-effect-dropdown-desc" id="field-dropdown-desc">
+                    Sát khí bao trùm chiến trường, kích thích chiến ý đôi bên
+                </div>
+                <div class="field-effect-dropdown-effect" id="field-dropdown-effect">
+                    Sát thương đôi bên x1.5, nhưng mỗi lần tấn công bản thân chịu 25% sát thương
+                </div>
+            </div>
+
+            <!-- 场地效果全屏提示 -->
+            <div class="field-effect-announce" id="field-effect-announce">
+                <div class="field-effect-announce-content">
+                    <div class="field-effect-announce-icon" id="announce-icon">🔥</div>
+                    <div class="field-effect-announce-name" id="announce-name">Sát Ý</div>
+                </div>
+            </div>
+
+            <!-- 左侧玩家角色 -->
+            <div class="character player-character"></div>
+
+            <!-- 右侧敌方角色 -->
+            <div class="character enemy-character"></div>
+
+            <!-- 战斗命令区域 -->
+            <div class="command-buttons-floating">
+                <div class="command-btn" id="gather" data-key="Q">
+                    <div class="key-hint">Q</div>
+                    <div class="btn-name">Tụ Khí</div>
+                </div>
+                <div class="command-btn" id="defend" data-key="W">
+                    <div class="key-hint">W</div>
+                    <div class="btn-name">Phòng Thủ</div>
+                </div>
+                <div class="command-btn" id="light-attack" data-key="E">
+                    <div class="key-hint">E</div>
+                    <div class="btn-name">Đánh Nhẹ</div>
+                </div>
+                <div class="command-btn" id="heavy-attack" data-key="R">
+                    <div class="key-hint">R</div>
+                    <div class="btn-name">Đánh Mạnh</div>
+                </div>
+                <div class="command-btn" id="special" data-key="T">
+                    <div class="key-hint">T</div>
+                    <div class="btn-name">Tuyệt Kỹ</div>
+                </div>
+                <div class="command-btn" id="taunt" data-key="Y">
+                    <div class="key-hint">Y</div>
+                    <div class="btn-name">Võ Mồm</div>
+                </div>
+                <div class="command-btn" id="item" data-key="U">
+                    <div class="key-hint">U</div>
+                    <div class="btn-name">Đạo Cụ</div>
+                </div>
+                <div class="command-btn escape-btn" id="escape" data-key="Escape">
+                    <div class="key-hint">Esc</div>
+                    <div class="btn-name">Bỏ Chạy</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 战斗日志（隐藏，数据保留用于下拉框同步） -->
+        <div class="battle-log" id="battle-log">
+            <p>战斗开始，请选择行动...</p>
+        </div>
+
+        <!-- Cửa sổ xác nhận -->
+        <div id="confirm-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">Xác nhận hành động</div>
+                <div class="modal-body" id="confirm-body">
+                    Bạn có chắc chắn muốn thực hiện hành động này?
+                    <div id="selected-action" style="margin-top:8px;"></div>
+                </div>
+                <div class="modal-actions">
+                    <button id="cancel-action" class="btn btn-cancel">Quay lại</button>
+                    <button id="confirm-action" class="btn btn-danger">Xác nhận</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Xác nhận thoát trận đấu (toàn màn hình) -->
+        <div id="exit-battle-overlay" class="modal" style="z-index:1000;">
+            <div class="modal-content">
+                <div class="modal-header">Xác nhận thoát</div>
+                <div class="modal-body">Bạn có chắc chắn muốn thoát khỏi trận đấu?</div>
+                <div class="modal-actions">
+                    <button class="btn btn-cancel"
+                        onclick="document.getElementById('exit-battle-overlay').style.display='none'">Quay lại</button>
+                    <button class="btn btn-danger" onclick="exitBattle('quit')">Thoát</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cửa sổ kết thúc game -->
+        <div id="game-over-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header" id="game-over-title">Trò chơi kết thúc</div>
+                <div class="modal-body" id="game-over-message">
+                    Thông tin kết thúc
+                </div>
+                <div class="modal-footer" id="game-over-footer">
+                    <button id="restart-game">Chơi lại</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cửa sổ chọn đạo cụ -->
+        <div id="item-modal" class="modal">
+            <div class="item-modal-content">
+                <div class="item-modal-header">Chọn đạo cụ</div>
+                <div class="item-list" id="item-list">
+                    <!-- Danh sách đạo cụ sẽ được tạo động bởi JavaScript -->
+                </div>
+                <div class="item-modal-footer">
+                    <button class="item-close-btn" onclick="closeItemModal()">Quay lại</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // //Cập nhật tích hợp hệ thống turn-based - Lấy tham số URL
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Danh sách loại kẻ địch (dùng cho khớp mờ)
+        const ENEMY_CATEGORIES = ['正派弟子', '反派弟子', '游侠', '军士', '匪徒', '平民', '蒙面人', '野兽', '未知'];
+
+        // Ánh xạ từ đồng nghĩa (dùng cho khớp mờ)
+        const CATEGORY_SYNONYMS = {
+            '门派弟子': '正派弟子',
+            '武林弟子': '正派弟子',
+            '正道弟子': '正派弟子',
+            '魔教弟子': '反派弟子',
+            '邪道弟子': '反派弟子',
+            '邪派弟子': '反派弟子',
+            '魔道弟子': '反派弟子',
+            '侠客': '游侠',
+            '江湖人': '游侠',
+            '武者': '游侠',
+            '士兵': '军士',
+            '官兵': '军士',
+            '守卫': '军士',
+            '土匪': '匪徒',
+            '盗贼': '匪徒',
+            '强盗': '匪徒',
+            '山贼': '匪徒',
+            '马贼': '匪徒',
+            '百姓': '平民',
+            '村民': '平民',
+            '商人': '平民',
+            '路人': '平民',
+            '刺客': '蒙面人',
+            '黑衣人': '蒙面人',
+            '神秘人': '蒙面人',
+            '猛兽': '野兽',
+            '野狼': '野兽',
+            '猛虎': '野兽',
+            '毒蛇': '野兽',
+            '动物': '野兽',
+            '怪物': '野兽'
+        };
+
+        // 道具系统变量
+        const battleItems = {
+            daliwan: parseInt(urlParams.get('daliwan')) || 0,      // 大力丸
+            jingutie: parseInt(urlParams.get('jingutie')) || 0,    // 筋骨贴
+            jinchuangyao: parseInt(urlParams.get('jinchuangyao')) || 0,  // 金疮药
+            piliwan: parseInt(urlParams.get('piliwan')) || 0       // 霹雳丸
+        };
+
+        // 道具使用状态
+        let itemUsedThisBattle = false;  // 本场战斗是否已使用道具
+        let usedItemKey = null;          // 使用的道具类型
+        let damageMultiplier = 1.0;      // 伤害倍率（大力丸效果）
+        let defenseMultiplier = 1.0;     // 防御倍率（筋骨贴效果）
+
+        // ========== 场地效果系统 ==========
+        const FIELD_EFFECTS = {
+            'killing-intent': {
+                id: 'killing-intent',
+                name: 'Sát Ý',
+                icon: '🔥',
+                cssClass: 'killing-intent',
+                desc: 'Sát khí bao trùm chiến trường, kích thích chiến ý đôi bên',
+                effectDesc: 'Sát thương đôi bên x1.5, nhưng mỗi lần tấn công bản thân chịu 25% sát thương',
+                duration: 3
+            },
+            'miasma': {
+                id: 'miasma',
+                name: 'Chướng Khí',
+                icon: '☠️',
+                cssClass: 'miasma',
+                desc: 'Độc khí bao phủ chiến trường, ăn mòn cơ thể',
+                effectDesc: 'Mỗi hiệp đôi bên mất 10% máu hiện tại',
+                duration: 3
+            },
+            'fortify': {
+                id: 'fortify',
+                name: 'Cố Thủ',
+                icon: '🛡️',
+                cssClass: 'fortify',
+                desc: 'Thiên địa chi khí ngưng tụ, bảo hộ người phòng thủ',
+                effectDesc: 'Hiệu quả phòng thủ của đôi bên chuyển thành miễn thương hoàn toàn',
+                duration: 3
+            },
+            'energy-tide': {
+                id: 'energy-tide',
+                name: 'Khí Hải',
+                icon: '✨',
+                cssClass: 'energy-tide',
+                desc: 'Linh khí trào dâng, tràn ngập toàn thân',
+                effectDesc: 'Mỗi hiệp đôi bên tự động hồi +1 Khí',
+                duration: 3
+            },
+            'melee': {
+                id: 'melee',
+                name: 'Triền Đấu',
+                icon: '🤝',
+                cssClass: 'melee',
+                desc: 'Cận chiến kịch liệt, không rảnh phân bua',
+                effectDesc: 'Đôi bên không thể dùng Võ Mồm',
+                duration: 3
+            },
+            'rejuvenation': {
+                id: 'rejuvenation',
+                name: 'Hồi Xuân',
+                icon: '💚',
+                cssClass: 'rejuvenation',
+                desc: 'Sinh cơ dồi dào, khôi phục nguyên khí',
+                effectDesc: 'Mỗi hiệp đôi bên hồi 10% máu tối đa',
+                duration: 3
+            }
+        };
+
+        // 场地效果状态
+        let activeFieldEffect = null;     // 当前激活的场地效果
+        let fieldEffectRemaining = 0;     // 剩余回合数
+        let fieldDropdownOpen = false;    // 下拉框是否展开
+
+        // ========== 资源预加载系统 ==========
+        const preloadedImages = new Map();  // 缓存已预加载的图片
+
+        // 预加载单张图片
+        function preloadImage(url) {
+            return new Promise((resolve, reject) => {
+                if (preloadedImages.has(url)) {
+                    resolve(preloadedImages.get(url));
+                    return;
+                }
+                const img = new Image();
+                img.onload = () => {
+                    preloadedImages.set(url, img);
+                    console.log(`[Tải trước] Thành công: ${url.split('/').pop()}`);
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    console.warn(`[Tải trước] Thất bại: ${url.split('/').pop()}`);
+                    reject(new Error(`Failed to load: ${url}`));
+                };
+                img.src = url;
+            });
+        }
+
+        // 预加载战斗资源（立绘差分+特效）
+        async function preloadBattleResources(enemyName) {
+            console.log('[Tải trước] Bắt đầu tải trước tài nguyên chiến đấu...');
+
+            const baseUrl = 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main';
+            const states = ['待机', '攻击', '防御', '受击'];
+            const urls = [];
+
+            // 主角的4个立绘差分
+            states.forEach(state => {
+                urls.push(`${baseUrl}/img/战斗差分/主角-${state}.png`);
+            });
+
+            // 敌人的4个立绘差分
+            if (enemyName) {
+                states.forEach(state => {
+                    urls.push(`${baseUrl}/img/战斗差分/${enemyName}-${state}.png`);
+                });
+            }
+
+            // 特效文件
+            urls.push(`${baseUrl}/assets/image/static/集气.gif`);
+            urls.push(`${baseUrl}/assets/image/static/攻击.gif`);
+            urls.push(`${baseUrl}/assets/image/static/嘴炮.png`);
+
+            // 并行预加载所有资源
+            const results = await Promise.allSettled(urls.map(url => preloadImage(url)));
+
+            const succeeded = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.filter(r => r.status === 'rejected').length;
+            console.log(`[Tải trước] Hoàn tất: ${succeeded} thành công, ${failed} thất bại`);
+
+            return { succeeded, failed };
+        }
+
+        // 道具配置
+        const itemConfig = {
+            daliwan: {
+                name: 'Đại Lực Hoàn',
+                desc: 'Sát thương trận này x1.25',
+                effect: () => {
+                    damageMultiplier = 1.25;
+                    addLog('【Đạo Cụ】Lấy Đại Lực Hoàn, công kích tăng mạnh!');
+                }
+            },
+            jingutie: {
+                name: 'Cao Dán Gân Cốt',
+                desc: 'Sát thương chịu trận này chia 1.25',
+                effect: () => {
+                    defenseMultiplier = 1.25;
+                    addLog('【Đạo Cụ】Dán Cao Dán Gân Cốt, phòng thủ tăng lên!');
+                }
+            },
+            jinchuangyao: {
+                name: 'Kim Sang Dược',
+                desc: 'Lập tức hồi phục 30% máu tối đa',
+                effect: () => {
+                    const healAmount = Math.round(gameState.player.maxHealth * 0.3);
+                    gameState.player.currentHealth = Math.min(
+                        gameState.player.currentHealth + healAmount,
+                        gameState.player.maxHealth
+                    );
+                    addLog(`【Đạo Cụ】Dùng Kim Sang Dược, hồi phục ${healAmount} máu!`);
+                    updateDisplay();
+                }
+            },
+            piliwan: {
+                name: 'Phích Lịch Hoàn',
+                desc: 'Lập tức gây 1.5 lần sát thương công kích lên kẻ địch',
+                effect: () => {
+                    const damage = Math.round(gameState.player.basicDamage * 1.5);
+                    gameState.enemy.currentHealth -= damage;
+                    if (gameState.enemy.currentHealth < 0) gameState.enemy.currentHealth = 0;
+                    addLog(`【Đạo Cụ】Ném Phích Lịch Hoàn, gây ${damage} sát thương lên ${gameState.enemy.displayName}!`);
+
+                    // 触发敌人受击动画
+                    const npcPortraitLayer = document.querySelector('.npc-portrait-layer');
+                    npcPortraitLayer.classList.add('shake');
+                    setTimeout(() => {
+                        npcPortraitLayer.classList.remove('shake');
+                    }, 400);
+
+                    updateDisplay();
+
+                    // 检查是否击杀敌人
+                    if (gameState.enemy.currentHealth <= 0) {
+                        setTimeout(() => {
+                            checkGameOver();
+                        }, 500);
+                    }
+                }
+            }
+        };
+
+        // //Cập nhật tích hợp hệ thống turn-based - Lấy thông tin người chơi từ tham số URL
+        const PLAYER_INFO = {
+            name: urlParams.get('playerName') || '你',
+            maxHealth: parseInt(urlParams.get('playerHealth')) || 51,
+            currentHealth: parseInt(urlParams.get('playerHealth')) || 51,
+            energy: 0,
+            maxEnergy: 10,
+            selectedAction: null,
+            basicDamage: parseInt(urlParams.get('playerAttack')) || 20,
+            tauntedTurns: 0  // Số hiệp còn lại ở trạng thái khiêu khích
+        };
+
+        // //Cập nhật tích hợp hệ thống turn-based - Xây dựng văn bản thông tin kẻ địch
+        const enemyInfoText = `
+发起战斗，敌方信息如下
+name: ${urlParams.get('enemyName') || '呼延显'}
+  maxHealth: ${urlParams.get('enemyMaxHealth') || '极低'}
+  basicDamage: ${urlParams.get('enemyBasicDamage') || '极低'}
+`;
+
+        // Liên kết ảnh nền chính và nền cửa sổ bật lên
+        const GAME_BG_URL = urlParams.get('backgroundUrl') || 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/后山_昼.webp';
+        const MODAL_BG_URL = 'https://files.catbox.moe/jabi3y.jpg';
+
+
+        // Ánh xạ cấp độ máu và sát thương
+        const healthMap = { '极低': 25, '低': 50, '中': 100, '高': 175, '极高': 275 };
+        const damageMap = { '极低': 10, '低': 20, '中': 40, '高': 70, '极高': 120 };
+        const styles = ['风', '火', '林', '山'];
+
+        // Hàm khớp mờ - Tính khoảng cách Levenshtein
+        function levenshteinDistance(a, b) {
+            if (!a || !b) return Math.max((a || '').length, (b || '').length);
+            if (a === b) return 0;
+
+            const matrix = [];
+            const aLen = a.length;
+            const bLen = b.length;
+
+            for (let i = 0; i <= bLen; i++) {
+                matrix[i] = [i];
+            }
+            for (let j = 0; j <= aLen; j++) {
+                matrix[0][j] = j;
+            }
+
+            for (let i = 1; i <= bLen; i++) {
+                for (let j = 1; j <= aLen; j++) {
+                    if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j] + 1
+                        );
+                    }
+                }
+            }
+
+            return matrix[bLen][aLen];
+        }
+
+        // Khớp mờ danh mục
+        function fuzzyMatchCategory(input) {
+            if (!input || typeof input !== 'string') return '未知';
+
+            const normalizedInput = input.trim();
+            if (!normalizedInput) return '未知';
+
+            // 1. Khớp chính xác
+            if (ENEMY_CATEGORIES.includes(normalizedInput)) {
+                return normalizedInput;
+            }
+
+            // 2. Khớp chính xác từ đồng nghĩa
+            if (CATEGORY_SYNONYMS[normalizedInput]) {
+                const synonym = CATEGORY_SYNONYMS[normalizedInput];
+                if (ENEMY_CATEGORIES.includes(synonym)) {
+                    console.log(`[Khớp danh mục] Khớp từ đồng nghĩa: "${normalizedInput}" -> "${synonym}"`);
+                    return synonym;
+                }
+            }
+
+            // 3. Khớp bao gồm
+            for (const category of ENEMY_CATEGORIES) {
+                if (normalizedInput.includes(category) || category.includes(normalizedInput)) {
+                    console.log(`[Khớp danh mục] Khớp bao gồm: "${normalizedInput}" -> "${category}"`);
+                    return category;
+                }
+            }
+
+            // 4. Khớp bao gồm từ đồng nghĩa
+            for (const [key, value] of Object.entries(CATEGORY_SYNONYMS)) {
+                if (normalizedInput.includes(key) || key.includes(normalizedInput)) {
+                    if (ENEMY_CATEGORIES.includes(value)) {
+                        console.log(`[Khớp danh mục] Khớp bao gồm từ đồng nghĩa: "${normalizedInput}" (via "${key}") -> "${value}"`);
+                        return value;
+                    }
+                }
+            }
+
+            // 5. Khớp khoảng cách chỉnh sửa
+            let bestMatch = '未知';
+            let bestDistance = Infinity;
+            const threshold = 2; // Khoảng cách chỉnh sửa tối đa cho phép
+
+            for (const category of ENEMY_CATEGORIES) {
+                const distance = levenshteinDistance(normalizedInput, category);
+                if (distance < bestDistance && distance <= threshold) {
+                    bestDistance = distance;
+                    bestMatch = category;
+                }
+            }
+
+            if (bestMatch !== '未知') {
+                console.log(`[Khớp danh mục] Khớp khoảng cách chỉnh sửa: "${normalizedInput}" -> "${bestMatch}" (Khoảng cách: ${bestDistance})`);
+            } else {
+                console.log(`[Khớp danh mục] Không thể khớp: "${normalizedInput}"，sử dụng giá trị mặc định "unknown"`);
+            }
+
+            return bestMatch;
+        }
+
+        // Hàm chọn ngẫu nhiên có trọng số
+        function weightedRandom(options, debugInfo = null) {
+            // options: { 'action': weight, ... }
+            const entries = Object.entries(options);
+            const totalWeight = entries.reduce((sum, [, weight]) => sum + weight, 0);
+            const rollValue = Math.random() * totalWeight;
+            let remaining = rollValue;
+
+            // Nếu cần xuất gỡ lỗi
+            if (debugInfo) {
+                const actionNames = {
+                    'gather': 'Tụ Khí',
+                    'defend': 'Phòng Thủ',
+                    'light-attack': 'Khinh Công',
+                    'heavy-attack': 'Trọng Công',
+                    'special': 'Tuyệt Kỹ',
+                    'taunt': 'Võ Mồm'
+                };
+                const probabilities = entries.map(([action, weight]) => {
+                    const probability = (weight / totalWeight * 100).toFixed(1);
+                    return `${actionNames[action] || action}(${probability}%)`;
+                });
+                console.log(`[Chiến thuật AI] Phong cách: ${debugInfo.style}, Phạm vi năng lượng: ${debugInfo.energyKey}`);
+                console.log(`[Chiến thuật AI] Hành động tham gia trọng số: ${probabilities.join(', ')}`);
+                console.log(`[Chiến thuật AI] Roll điểm: ${rollValue.toFixed(2)} / ${totalWeight} (${(rollValue / totalWeight * 100).toFixed(1)}%)`);
+            }
+
+            for (const [action, weight] of entries) {
+                remaining -= weight;
+                if (remaining <= 0) {
+                    if (debugInfo) {
+                        const actionNames = {
+                            'gather': 'Tụ Khí',
+                            'defend': 'Phòng Thủ',
+                            'light-attack': 'Khinh Công',
+                            'heavy-attack': 'Trọng Công',
+                            'special': 'Tuyệt Kỹ',
+                            'taunt': 'Võ Mồm'
+                        };
+                        console.log(`[Chiến thuật AI] Kết quả lựa chọn: ${actionNames[action] || action}`);
+                    }
+                    return action;
+                }
+            }
+            // Dự phòng trả về tùy chọn đầu tiên
+            if (debugInfo) {
+                console.log(`[Chiến thuật AI] Kết quả lựa chọn (dự phòng): ${entries[0][0]}`);
+            }
+            return entries[0][0];
+        }
+
+        // Cấu hình chiến thuật phong cách: Phân bố xác suất dựa trên phạm vi năng lượng
+        const STYLE_STRATEGIES = {
+            '风': {
+                // Phong cách: Tấn công nhanh, ưu tiên khinh công và võ mồm phá phòng
+                0: { 'gather': 100 },
+                1: { 'gather': 25, 'taunt': 30, 'light-attack': 45 },
+                '2-4': { 'gather': 10, 'taunt': 25, 'light-attack': 45, 'heavy-attack': 20 },
+                '5+': { 'gather': 10, 'taunt': 5, 'light-attack': 30, 'heavy-attack': 20, 'special': 35 }
+            },
+            '火': {
+                // Phong cách Hỏa: Bùng nổ, ưu tiên trọng công
+                0: { 'gather': 100 },
+                1: { 'gather': 50, 'taunt': 15, 'light-attack': 35 },
+                '2-4': { 'gather': 20, 'taunt': 5, 'light-attack': 20, 'heavy-attack': 55 },
+                '5+': { 'gather': 10, 'taunt': 5, 'light-attack': 10, 'heavy-attack': 35, 'special': 40 }
+            },
+            '林': {
+                // Phong cách Lâm: Tích tụ, ưu tiên tụ khí và tuyệt kỹ
+                0: { 'gather': 100 },
+                1: { 'gather': 75, 'taunt': 10, 'light-attack': 15 },
+                '2-4': { 'gather': 60, 'taunt': 10, 'light-attack': 15, 'heavy-attack': 15 },
+                '5+': { 'gather': 10, 'taunt': 5, 'light-attack': 10, 'heavy-attack': 15, 'special': 60 }
+            },
+            '山': {
+                // Phong cách Sơn: Phòng thủ (phòng thủ được xử lý trong giai đoạn độc lập)
+                0: { 'gather': 100 },
+                1: { 'gather': 50, 'taunt': 10, 'light-attack': 40 },
+                '2-4': { 'gather': 50, 'taunt': 5, 'light-attack': 20, 'heavy-attack': 25 },
+                '5+': { 'gather': 10, 'taunt': 5, 'light-attack': 15, 'heavy-attack': 20, 'special': 50 }
+            }
+        };
+
+        // Lấy cấu hình chiến thuật tương ứng dựa trên năng lượng
+        function getEnergyRangeKey(energy) {
+            if (energy === 0) return 0;
+            if (energy === 1) return 1;
+            if (energy >= 2 && energy <= 4) return '2-4';
+            return '5+';
+        }
+
+        // Thông tin NPC đặc biệt
+        const commonNPCs = {
+            '破阵子': {
+                name: '破阵子',
+                displayName: 'Phá Trận Tử',
+                maxHealth: 200,
+                basicDamage: 140,
+                style: '火',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/破阵子.png'
+            },
+            '洞庭君': {
+                name: '洞庭君',
+                displayName: 'Động Đình Quân',
+                maxHealth: 275,
+                basicDamage: 100,
+                style: '林',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/洞庭君.png'
+            },
+            '苓雪妃': {
+                name: '苓雪妃',
+                displayName: 'Linh Tuyết Phi',
+                maxHealth: 250,
+                basicDamage: 160,
+                style: '风',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/苓雪妃.png'
+            },
+            '玄天青': {
+                name: '玄天青',
+                displayName: 'Huyền Thiên Thanh',
+                maxHealth: 300,
+                basicDamage: 60,
+                style: '山',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/玄天青.png'
+            },
+            '钱塘君': {
+                name: '钱塘君',
+                displayName: 'Tiền Đường Quân',
+                maxHealth: 150,
+                basicDamage: 100,
+                style: '火',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/钱塘君.png'
+            },
+            '萧白瑚': {
+                name: '萧白瑚',
+                displayName: 'Tiêu Bạch Hô',
+                maxHealth: 125,
+                basicDamage: 60,
+                style: '风',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/萧白瑚.png'
+            },
+            '姬姒': {
+                name: '姬姒',
+                displayName: 'Cơ Tự',
+                maxHealth: 350,
+                basicDamage: 70,
+                style: '山',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/姬姒.png'
+            },
+            '施延年': {
+                name: '施延年',
+                displayName: 'Thi Diên Niên',
+                maxHealth: 200,
+                basicDamage: 50,
+                style: '山',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/施延年.png'
+            },
+            '呼延显': {
+                name: '呼延显',
+                displayName: 'Hô Diên Hiển',
+                maxHealth: 200,
+                basicDamage: 100,
+                style: '林',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/呼延显.png'
+            },
+            '雨烛': {
+                name: '雨烛',
+                displayName: 'Vũ Chúc',
+                maxHealth: 100,
+                basicDamage: 90,
+                style: '风',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/雨烛.png'
+            },
+            '安慕': {
+                name: '安慕',
+                displayName: 'An Mộ',
+                maxHealth: 75,
+                basicDamage: 110,
+                style: '火',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/安慕.png'
+            },
+            '唐沐梨': {
+                name: '唐沐梨',
+                displayName: 'Đường Mộc Lê',
+                maxHealth: 175,
+                basicDamage: 80,
+                style: '风',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/唐沐梨.png'
+            },
+            '洛潜幽': {
+                name: '洛潜幽',
+                displayName: 'Lạc Tiềm U',
+                maxHealth: 50,
+                basicDamage: 20,
+                style: '山',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/洛潜幽.png'
+            },
+            '神秘杂役': {
+                name: '神秘杂役',
+                displayName: 'Tạp Dịch Bí Ẩn',
+                maxHealth: 75,
+                basicDamage: 300,
+                style: '风',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/神秘杂役.png'
+            },
+            '鹿椿若': {
+                name: '鹿椿若',
+                displayName: 'Lộc Xuân Nhược',
+                maxHealth: 150,
+                basicDamage: 30,
+                style: '林',
+                portrait: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/鹿椿若.png'
+            }
+        };
+
+        const genericNPCPortraits = [
+            'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/杂鱼1.png',  // 占位链接1
+            'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/杂鱼2.png',  // 占位链接2
+            'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/NPC/杂鱼3.png'   // 占位链接3
+        ];
+
+        // 解析敌方信息的函数
+        function parseEnemyInfo(text) {
+            // 提取名称
+            const nameMatch = text.match(/name:\s*([^\n]+)/);
+            const npcName = nameMatch ? nameMatch[1].trim() : '';
+            clearEnemyPortrait();
+
+            // 获取难度参数
+            const currentDifficulty = urlParams.get('difficulty') || 'normal';
+
+            // 获取类别参数并进行模糊匹配
+            const rawCategory = urlParams.get('enemyCategory') || '未知';
+            const enemyCategory = fuzzyMatchCategory(rawCategory);
+            console.log(`[敌人信息] 原始类别: "${rawCategory}" -> 匹配结果: "${enemyCategory}"`);
+
+            // 优先查找常见NPC
+            if (npcName && commonNPCs[npcName]) {
+                const npc = commonNPCs[npcName];
+                // 更新敌人立绘 - 使用战斗差分目录
+                const npcBattlePortrait = `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/${npc.name}-待机.png`;
+                updateEnemyPortrait(npcBattlePortrait);
+
+                // 根据难度调整属性
+                let maxHealth = npc.maxHealth;
+                let basicDamage = npc.basicDamage;
+
+                if (currentDifficulty === 'normal') {
+                    maxHealth = Math.round(maxHealth * 1.25);
+                    basicDamage = Math.round(basicDamage * 1.25);
+                } else if (currentDifficulty === 'hard') {
+                    maxHealth = Math.round(maxHealth * 1.5);
+                    basicDamage = Math.round(basicDamage * 1.5);
+                }
+
+                return {
+                    name: npc.name,
+                    displayName: npc.displayName || npc.name, // Sử dụng tên hiển thị tiếng Việt
+                    maxHealth: maxHealth,
+                    currentHealth: maxHealth,
+                    energy: 0,
+                    maxEnergy: 10,
+                    selectedAction: null,
+                    basicDamage: basicDamage,
+                    style: npc.style,
+                    category: enemyCategory,  // 添加类别字段
+                    tauntedTurns: 0  // 挑衅状态剩余回合数
+                };
+            }
+
+            // 没有匹配到常见NPC，根据类别选择立绘
+            const categoryPortrait = getCategoryPortrait(enemyCategory);
+            updateEnemyPortrait(categoryPortrait);
+
+            // 走原有解析逻辑，风格随机
+            const maxHealthMatch = text.match(/maxHealth:\s*([^\n]+)/);
+            const basicDamageMatch = text.match(/basicDamage:\s*([^\n]+)/);
+
+            let baseHealth = maxHealthMatch ? healthMap[maxHealthMatch[1].trim()] || 80 : 80;
+            let baseDamage = basicDamageMatch ? damageMap[basicDamageMatch[1].trim()] || 30 : 30;
+
+            // 根据难度调整属性
+            if (currentDifficulty === 'normal') {
+                baseHealth = Math.round(baseHealth * 1.25);
+                baseDamage = Math.round(baseDamage * 1.25);
+            } else if (currentDifficulty === 'hard') {
+                baseHealth = Math.round(baseHealth * 1.5);
+                baseDamage = Math.round(baseDamage * 1.5);
+            }
+
+            return {
+                name: npcName,
+                displayName: displayName, // Sử dụng tên hiển thị
+                maxHealth: baseHealth,
+                currentHealth: baseHealth,
+                energy: 0,
+                maxEnergy: 10,
+                selectedAction: null,
+                basicDamage: baseDamage,
+                style: styles[Math.floor(Math.random() * styles.length)],
+                category: enemyCategory,  // 添加类别字段
+                tauntedTurns: 0  // 挑衅状态剩余回合数
+            };
+        }
+
+        // 根据类别获取立绘
+        function getCategoryPortrait(category) {
+            // 类别立绘映射 - 使用战斗差分目录下的待机图
+            const categoryPortraits = {
+                '正派弟子': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/正派弟子-待机.png',
+                '反派弟子': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/反派弟子-待机.png',
+                '游侠': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/游侠-待机.png',
+                '军士': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/军士-待机.png',
+                '匪徒': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/匪徒-待机.png',
+                '平民': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/平民-待机.png',
+                '蒙面人': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/蒙面人-待机.png',
+                '野兽': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/野兽-待机.png',
+                '未知': 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/未知-待机.png'
+            };
+
+            return categoryPortraits[category] || categoryPortraits['未知'];
+        }
+
+        // 更新敌人立绘
+        function updateEnemyPortrait(portraitUrl) {
+            const npcPortraitLayer = document.querySelector('.npc-portrait-layer');
+            npcPortraitLayer.style.backgroundImage = `url('${portraitUrl}')`;
+        }
+
+        // 清除敌人立绘
+        function clearEnemyPortrait() {
+            const npcPortraitLayer = document.querySelector('.npc-portrait-layer');
+            npcPortraitLayer.style.backgroundImage = '';
+        }
+
+        // 更新主角立绘
+        function updatePlayerPortrait(portraitUrl) {
+            const playerPortraitLayer = document.querySelector('.player-portrait-layer');
+            if (playerPortraitLayer) {
+                playerPortraitLayer.style.backgroundImage = `url('${portraitUrl}')`;
+            }
+        }
+
+        // 初始化主角立绘
+        function initPlayerPortrait() {
+            const defaultPlayerPortrait = 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/主角-待机.png';
+            updatePlayerPortrait(defaultPlayerPortrait);
+        }
+
+        // 获取主角立绘URL（根据状态）
+        function getPlayerPortraitUrl(state) {
+            return `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/主角-${state}.png`;
+        }
+
+        // 获取敌人立绘URL（根据状态）
+        function getEnemyPortraitUrl(state) {
+            const enemy = gameState.enemy;
+            const npcName = enemy.name;
+
+            // 优先检查是否是特殊NPC
+            if (npcName && commonNPCs[npcName]) {
+                return `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/${npcName}-${state}.png`;
+            }
+
+            // 否则使用类别
+            const category = enemy.category || '未知';
+            return `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/战斗差分/${category}-${state}.png`;
+        }
+
+        // 设置立绘描边效果
+        function setPortraitGlow(isPlayer, glowColor) {
+            const layer = isPlayer
+                ? document.querySelector('.player-portrait-layer')
+                : document.querySelector('.npc-portrait-layer');
+
+            if (!layer) return;
+
+            // 清除所有描边效果
+            layer.classList.remove('glow-yellow', 'glow-orange', 'glow-red');
+
+            // 添加新的描边效果
+            if (glowColor) {
+                layer.classList.add(glowColor);
+            }
+        }
+
+        // 切换立绘状态
+        function setPortraitState(isPlayer, state, glowColor) {
+            if (isPlayer) {
+                updatePlayerPortrait(getPlayerPortraitUrl(state));
+            } else {
+                updateEnemyPortrait(getEnemyPortraitUrl(state));
+            }
+            setPortraitGlow(isPlayer, glowColor);
+        }
+
+        // 恢复双方立绘到待机状态
+        function resetPortraitsToIdle() {
+            setPortraitState(true, '待机', null);   // 玩家恢复待机
+            setPortraitState(false, '待机', null);  // 敌人恢复待机
+        }
+
+        // 获取攻击类型对应的描边颜色类名
+        function getGlowClass(action, dealtDamage) {
+            if (!dealtDamage) return null;
+            switch (action) {
+                case 'light-attack': return 'glow-yellow';  // 黄色
+                case 'heavy-attack': return 'glow-orange';  // 橙色
+                case 'special': return 'glow-red';          // 红色
+                default: return null;
+            }
+        }
+
+        // //回合制系统集成更新 - 退出战斗
+        function exitBattle(result) {
+            // 向父窗口发送战斗结果和道具消耗信息
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'battle-exit',
+                    result: result, // 'victory' 或 'defeat' 或 'quit'
+                    itemUsed: usedItemKey,  // 使用的道具类型
+                    remainingItems: battleItems  // 剩余道具数量
+                }, '*');
+            }
+        }
+
+        // Mở cửa sổ đạo cụ
+        function openItemModal() {
+            // Nếu không phải lượt người chơi hoặc đang đợi xác nhận, trả về
+            if (gameState.currentTurn !== 'player' || gameState.waitingForConfirmation) return;
+
+            const itemModal = document.getElementById('item-modal');
+            const itemList = document.getElementById('item-list');
+
+            // Xóa danh sách
+            itemList.innerHTML = '';
+
+            // Nếu trận này đã dùng đạo cụ, hiển thị nhắc nhở
+            if (itemUsedThisBattle) {
+                itemList.innerHTML = `
+            <div class="item-used-hint">
+                Trận chiến này đã sử dụng đạo cụ, không thể dùng lại
+            </div>
+        `;
+            } else {
+                // Tạo danh sách đạo cụ
+                for (const [key, config] of Object.entries(itemConfig)) {
+                    const count = battleItems[key];
+                    const isEmpty = count <= 0;
+
+                    const itemRow = document.createElement('div');
+                    itemRow.className = `item-row${isEmpty ? ' disabled' : ''}`;
+                    itemRow.innerHTML = `
+                <div class="item-info">
+                    <div class="item-name">${config.name}</div>
+                    <div class="item-desc">${config.desc}</div>
+                </div>
+                <div class="item-count${isEmpty ? ' empty' : ''}">×${count}</div>
+                <button class="item-use-btn" ${isEmpty ? 'disabled' : ''} onclick="useItem('${key}')">Sử Dụng</button>
+            `;
+                    itemList.appendChild(itemRow);
+                }
+            }
+
+            itemModal.style.display = 'flex';
+        }
+
+        // Đóng cửa sổ đạo cụ
+        function closeItemModal() {
+            const itemModal = document.getElementById('item-modal');
+            itemModal.style.display = 'none';
+        }
+
+        // Sử dụng đạo cụ
+        function useItem(itemKey) {
+            if (itemUsedThisBattle) {
+                addLog('Trận chiến này đã sử dụng đạo cụ!');
+                return;
+            }
+
+            if (battleItems[itemKey] <= 0) {
+                addLog('Số lượng đạo cụ không đủ!');
+                return;
+            }
+
+            // Tiêu hao đạo cụ
+            battleItems[itemKey]--;
+            itemUsedThisBattle = true;
+            usedItemKey = itemKey;
+
+            // Đóng cửa sổ
+            closeItemModal();
+
+            // 执行道具效果
+            const config = itemConfig[itemKey];
+            if (config && config.effect) {
+                config.effect();
+            }
+
+            // 禁用道具按钮
+            const itemBtn = document.getElementById('item');
+            if (itemBtn) {
+                itemBtn.classList.add('disabled');
+            }
+        }
+
+        // //回合制系统集成更新 - 确认退出战斗
+        function confirmExitBattle() {
+            const ov = document.getElementById('exit-battle-overlay');
+            if (ov) { ov.style.display = 'flex'; }
+        }
+
+        const playerNameDisplay = document.getElementById('player-name');
+        const enemyNameDisplay = document.getElementById('enemy-name');
+        // 游戏状态对象
+        const gameState = {
+            currentTurn: 'player',
+            turnNumber: 1, // 添加回合计数器
+            waitingForConfirmation: false,
+            player: { ...PLAYER_INFO },
+            enemy: parseEnemyInfo(enemyInfoText)
+        };
+
+        // 获取DOM元素
+        const playerHealthBar = document.getElementById('player-health');
+        const enemyHealthBar = document.getElementById('enemy-health');
+        const playerHealthValue = document.getElementById('player-health-value');
+        const enemyHealthValue = document.getElementById('enemy-health-value');
+        const playerMaxHealth = document.getElementById('player-max-health'); // 新增
+        const enemyMaxHealth = document.getElementById('enemy-max-health'); // 新增
+        const playerEnergyDisplay = document.getElementById('player-energy');
+        const enemyEnergyDisplay = document.getElementById('enemy-energy');
+        const battleLog = document.getElementById('battle-log');
+        const turnText = document.getElementById('turn-text');
+        const selectedActionText = document.getElementById('selected-action');
+        const confirmActionButton = document.getElementById('confirm-action');
+        const cancelActionButton = document.getElementById('cancel-action');
+        const commandButtons = document.querySelectorAll('.command-btn');
+        const confirmModal = document.getElementById('confirm-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const gameOverTitle = document.getElementById('game-over-title');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const restartGameButton = document.getElementById('restart-game');
+
+        // 角色元素
+        const playerCharacter = document.querySelector('.player-character');
+        const enemyCharacter = document.querySelector('.enemy-character');
+
+        // Khởi tạo trò chơi
+        function initGame() {
+            // Khởi tạo ảnh đại diện người chơi
+            initPlayerPortrait();
+
+            updateDisplay();
+            addLog('Trận chiến bắt đầu, vui lòng chọn hành động...');
+
+            // Thêm sự kiện nút - hỗ trợ cảm ứng và chuột
+            setupButtonEvents();
+
+            // Kiểm soát bàn phím
+            document.addEventListener('keydown', handleKeyPress);
+
+            // Tải trước tài nguyên chiến đấu
+            const enemyName = gameState.enemy.name;
+            preloadBattleResources(enemyName).then(result => {
+                console.log(`[Khởi tạo chiến đấu] Hoàn tất tải trước tài nguyên`);
+            }).catch(err => {
+                console.warn('[Khởi tạo chiến đấu] Lỗi tải trước tài nguyên:', err);
+            });
+        }
+
+        // 设置按钮事件
+        function setupButtonEvents() {
+            document.getElementById('gather').addEventListener('click', () => selectAction('gather'));
+            document.getElementById('defend').addEventListener('click', () => selectAction('defend'));
+            document.getElementById('light-attack').addEventListener('click', () => selectAction('light-attack'));
+            document.getElementById('heavy-attack').addEventListener('click', () => selectAction('heavy-attack'));
+            document.getElementById('special').addEventListener('click', () => selectAction('special'));
+            document.getElementById('taunt').addEventListener('click', () => selectAction('taunt'));
+            document.getElementById('item').addEventListener('click', openItemModal);
+            document.getElementById('escape').addEventListener('click', confirmExitBattle);
+
+            // 确认按钮事件
+            confirmActionButton.addEventListener('click', () => {
+                if (confirmModal) confirmModal.style.display = 'none';
+                confirmAction();
+            });
+
+            // 取消按钮事件
+            cancelActionButton.addEventListener('click', () => {
+                if (confirmModal) confirmModal.style.display = 'none';
+                gameState.player.selectedAction = null;
+                updateDisplay();
+            });
+
+            // //回合制系统集成更新 - 修改重新开始按钮的处理
+            restartGameButton.addEventListener('click', () => {
+                // 如果在iframe中，退出到父窗口
+                if (window.parent !== window) {
+                    exitBattle('restart');
+                } else {
+                    window.location.reload();
+                }
+            });
+        }
+
+        // 更新显示
+        function updateDisplay() {
+            // 更新生命值显示
+            playerHealthBar.style.width = `${(gameState.player.currentHealth / gameState.player.maxHealth) * 100}%`;
+            enemyHealthBar.style.width = `${(gameState.enemy.currentHealth / gameState.enemy.maxHealth) * 100}%`;
+
+            // 更新生命值文本
+            playerHealthValue.textContent = gameState.player.currentHealth;
+            enemyHealthValue.textContent = gameState.enemy.currentHealth;
+
+            // 更新最大生命值文本
+            playerMaxHealth.textContent = gameState.player.maxHealth;
+            enemyMaxHealth.textContent = gameState.enemy.maxHealth;
+
+            // 更新能量值
+            playerEnergyDisplay.textContent = gameState.player.energy;
+            enemyEnergyDisplay.textContent = gameState.enemy.energy;
+
+            // 更新角色名字显示
+            playerNameDisplay.textContent = gameState.player.name;
+            enemyNameDisplay.textContent = gameState.enemy.displayName;
+
+            // 根据敌人战斗风格设置名字颜色
+            const styleColors = {
+                '风': '#4169E1',  // 靛蓝色 (Royal Blue)
+                '林': '#228B22',  // 深绿色 (Forest Green)
+                '火': '#B22222',  // 暗红色 (Firebrick)
+                '山': '#DAA520'   // 土黄色 (Goldenrod)
+            };
+            const enemyStyle = gameState.enemy.style;
+            if (enemyStyle && styleColors[enemyStyle]) {
+                enemyNameDisplay.style.color = styleColors[enemyStyle];
+            }
+
+            // 更新回合数显示
+            turnText.textContent = `Lượt thứ ${gameState.turnNumber}`;
+
+            // 更新挑衅状态显示
+            const playerTauntStatus = document.getElementById('player-taunt-status');
+            const enemyTauntStatus = document.getElementById('enemy-taunt-status');
+
+            if (gameState.player.tauntedTurns > 0) {
+                playerTauntStatus.textContent = 'Đang Khiêu Khích';
+                playerTauntStatus.classList.add('active');
+            } else {
+                playerTauntStatus.classList.remove('active');
+            }
+
+            if (gameState.enemy.tauntedTurns > 0) {
+                enemyTauntStatus.textContent = 'Đang Khiêu Khích';
+                enemyTauntStatus.classList.add('active');
+            } else {
+                enemyTauntStatus.classList.remove('active');
+            }
+
+            // 根据能量值启用/禁用按钮
+            checkButtonAvailability();
+        }
+
+        // 检查按钮可用性
+        function checkButtonAvailability() {
+            // 如果不是玩家回合或正在等待确认，禁用所有按钮
+            if (gameState.currentTurn !== 'player' || gameState.waitingForConfirmation) {
+                commandButtons.forEach(btn => {
+                    btn.classList.add('disabled');
+                });
+                return;
+            }
+
+            // 重置按钮状态
+            commandButtons.forEach(btn => {
+                btn.classList.remove('disabled');
+                btn.classList.remove('selected');
+            });
+
+            // 根据能量值启用/禁用按钮
+            if (gameState.player.energy < 1) {
+                document.getElementById('light-attack').classList.add('disabled');
+            }
+
+            if (gameState.player.energy < 2) {
+                document.getElementById('heavy-attack').classList.add('disabled');
+            }
+
+            if (gameState.player.energy < 5) {
+                document.getElementById('special').classList.add('disabled');
+            }
+
+            // 挑衅状态下禁用防御
+            if (gameState.player.tauntedTurns > 0) {
+                document.getElementById('defend').classList.add('disabled');
+            }
+
+            // 本场战斗已使用道具则禁用道具按钮
+            if (itemUsedThisBattle) {
+                document.getElementById('item').classList.add('disabled');
+            }
+
+            // 场地效果禁用的行动（缠斗禁用嘴炮）
+            if (isActionDisabledByField('taunt')) {
+                document.getElementById('taunt').classList.add('disabled');
+            }
+
+            // 如果有选中的动作，高亮显示
+            if (gameState.player.selectedAction) {
+                document.getElementById(gameState.player.selectedAction).classList.add('selected');
+            }
+        }
+
+        // ========== 战斗特效控制函数 ==========
+        // 显示战斗特效
+        function showBattleEffect(effectId, duration = 1500) {
+            const effect = document.getElementById(effectId);
+            if (effect) {
+                effect.classList.add('active');
+                // 对于GIF，重新加载以从头播放
+                const img = effect.querySelector('img');
+                if (img && img.src.endsWith('.gif')) {
+                    const src = img.src;
+                    img.src = '';
+                    img.src = src;
+                }
+                setTimeout(() => {
+                    effect.classList.remove('active');
+                }, duration);
+            }
+        }
+
+        // 隐藏战斗特效
+        function hideBattleEffect(effectId) {
+            const effect = document.getElementById(effectId);
+            if (effect) {
+                effect.classList.remove('active');
+            }
+        }
+
+        // 隐藏所有战斗特效
+        function hideAllBattleEffects() {
+            const effects = document.querySelectorAll('.battle-effect');
+            effects.forEach(effect => effect.classList.remove('active'));
+        }
+
+        // 添加战斗日志
+        function addLog(message) {
+            const logEntry = document.createElement('p');
+            logEntry.textContent = message;
+            battleLog.appendChild(logEntry);
+            battleLog.scrollTop = battleLog.scrollHeight;
+
+            // 同步更新日志下拉框
+            const logDropdown = document.getElementById('log-dropdown');
+            if (logDropdown) {
+                const dropdownEntry = document.createElement('p');
+                dropdownEntry.textContent = message;
+                logDropdown.appendChild(dropdownEntry);
+                logDropdown.scrollTop = logDropdown.scrollHeight;
+            }
+        }
+
+        // 切换日志下拉框显示
+        function toggleLogDropdown() {
+            const logDropdown = document.getElementById('log-dropdown');
+            if (logDropdown) {
+                logDropdown.classList.toggle('active');
+            }
+            // 关闭场地效果下拉框
+            const fieldDropdown = document.getElementById('field-effect-dropdown');
+            if (fieldDropdown) {
+                fieldDropdown.classList.remove('active');
+                fieldDropdownOpen = false;
+            }
+        }
+
+        // ========== 场地效果函数 ==========
+        // 切换场地效果下拉框
+        function toggleFieldEffectDropdown(event) {
+            event.stopPropagation();
+            const fieldDropdown = document.getElementById('field-effect-dropdown');
+            if (fieldDropdown) {
+                fieldDropdownOpen = !fieldDropdownOpen;
+                if (fieldDropdownOpen) {
+                    fieldDropdown.classList.add('active');
+                } else {
+                    fieldDropdown.classList.remove('active');
+                }
+            }
+            // 关闭日志下拉框
+            const logDropdown = document.getElementById('log-dropdown');
+            if (logDropdown) {
+                logDropdown.classList.remove('active');
+            }
+        }
+
+        // Kiểm tra và kích hoạt hiệu ứng địa hình
+        function checkFieldEffectTrigger() {
+            console.log(`[Kiểm tra hiệu ứng địa hình] Hiệp hiện tại: ${gameState.turnNumber}, Hiệu ứng đã có: ${activeFieldEffect ? activeFieldEffect.name : 'Không'}`);
+
+            // 5 hiệp đầu không kích hoạt
+            if (gameState.turnNumber <= 5) {
+                console.log('[Kiểm tra hiệu ứng địa hình] Giai đoạn bảo vệ 5 hiệp đầu, bỏ qua');
+                return;
+            }
+
+            // Khi đã có hiệu ứng địa hình thì không kích hoạt
+            if (activeFieldEffect !== null) {
+                console.log('[Kiểm tra hiệu ứng địa hình] Đã có hiệu ứng địa hình, bỏ qua');
+                return;
+            }
+
+            // Hiệp 6 kích hoạt ổn định, sau đó xác suất kích hoạt là 33%
+            let shouldTrigger = false;
+            if (gameState.turnNumber === 6) {
+                console.log('[Kiểm tra hiệu ứng địa hình] Hiệp 6, kích hoạt ổn định');
+                shouldTrigger = true;
+            } else {
+                const roll = Math.random();
+                console.log(`[Kiểm tra hiệu ứng địa hình] Xác định xác suất: ${(roll * 100).toFixed(1)}% (Cần <= 33%)`);
+                shouldTrigger = roll <= 0.33;
+            }
+
+            if (!shouldTrigger) {
+                console.log('[Kiểm tra hiệu ứng địa hình] Xác định xác suất thất bại, không kích hoạt');
+                return;
+            }
+
+            console.log('[Kiểm tra hiệu ứng địa hình] Kích hoạt thành công! Chuẩn bị kích hoạt hiệu ứng địa hình');
+
+            // Chọn ngẫu nhiên một hiệu ứng địa hình
+            const effectKeys = Object.keys(FIELD_EFFECTS);
+            const randomKey = effectKeys[Math.floor(Math.random() * effectKeys.length)];
+            const effect = FIELD_EFFECTS[randomKey];
+
+            // Kích hoạt hiệu ứng địa hình
+            activateFieldEffect(effect);
+        }
+
+        // Kích hoạt hiệu ứng địa hình
+        function activateFieldEffect(effect) {
+            activeFieldEffect = effect;
+            fieldEffectRemaining = effect.duration;
+
+            // Cập nhật UI
+            updateFieldEffectUI();
+
+            // Hiển thị thông báo toàn màn hình
+            showFieldEffectAnnounce(effect);
+
+            // Thêm nhật ký
+            addLog(`【Hiệu Ứng Địa Hình】${effect.icon} ${effect.name} - ${effect.effectDesc}`);
+
+            console.log(`[Hiệu ứng địa hình] Kích hoạt: ${effect.name}, duy trì ${effect.duration} hiệp`);
+        }
+
+        // Cập nhật UI hiệu ứng địa hình
+        function updateFieldEffectUI() {
+            const indicator = document.getElementById('field-effect-indicator');
+            const icon = document.getElementById('field-effect-icon');
+            const name = document.getElementById('field-effect-name');
+            const timer = document.getElementById('field-effect-timer');
+            const dropdown = document.getElementById('field-effect-dropdown');
+            const dropdownIcon = document.getElementById('field-dropdown-icon');
+            const dropdownName = document.getElementById('field-dropdown-name');
+            const dropdownDesc = document.getElementById('field-dropdown-desc');
+            const dropdownEffect = document.getElementById('field-dropdown-effect');
+
+            if (activeFieldEffect && fieldEffectRemaining > 0) {
+                // Hiển thị chỉ báo hiệu ứng địa hình
+                indicator.classList.add('active', 'appearing', activeFieldEffect.cssClass);
+                icon.textContent = activeFieldEffect.icon;
+                name.textContent = activeFieldEffect.name;
+                timer.textContent = `(${fieldEffectRemaining})`;
+
+                // Cập nhật nội dung và màu sắc hộp thả xuống
+                dropdownIcon.textContent = activeFieldEffect.icon;
+                dropdownName.textContent = activeFieldEffect.name;
+                dropdownDesc.textContent = activeFieldEffect.desc;
+                dropdownEffect.textContent = activeFieldEffect.effectDesc;
+
+                // Thêm lớp màu tương ứng cho hộp thả xuống
+                dropdown.className = 'field-effect-dropdown ' + activeFieldEffect.cssClass;
+
+                // Xóa lớp hoạt ảnh
+                setTimeout(() => {
+                    indicator.classList.remove('appearing');
+                }, 500);
+            } else {
+                // Ẩn hiệu ứng địa hình
+                indicator.className = 'field-effect-indicator';
+                if (dropdown) {
+                    dropdown.className = 'field-effect-dropdown';
+                }
+                fieldDropdownOpen = false;
+            }
+        }
+
+        // Hiển thị thông báo toàn màn hình hiệu ứng địa hình
+        function showFieldEffectAnnounce(effect) {
+            const announce = document.getElementById('field-effect-announce');
+            const announceIcon = document.getElementById('announce-icon');
+            const announceName = document.getElementById('announce-name');
+
+            announceIcon.textContent = effect.icon;
+            announceName.textContent = effect.name;
+
+            announce.classList.add('active');
+
+            // Ẩn sau 2 giây
+            setTimeout(() => {
+                announce.classList.remove('active');
+            }, 2000);
+        }
+
+        // Xử lý kết thúc hiệp hiệu ứng địa hình
+        function processFieldEffectTurnEnd() {
+            if (activeFieldEffect === null) return;
+
+            fieldEffectRemaining--;
+
+            if (fieldEffectRemaining <= 0) {
+                addLog(`【Hiệu Ứng Địa Hình】${activeFieldEffect.icon} ${activeFieldEffect.name} hiệu quả tiêu tan`);
+                activeFieldEffect = null;
+                fieldEffectRemaining = 0;
+            }
+
+            updateFieldEffectUI();
+        }
+
+        // 应用场地效果 - 回合开始时（气海、瘴疠、回春）
+        function applyFieldEffectOnTurnStart() {
+            if (activeFieldEffect === null) return;
+
+            const player = gameState.player;
+            const enemy = gameState.enemy;
+
+            switch (activeFieldEffect.id) {
+                case 'energy-tide':  // Khí Hải: Song phương +1 Khí
+                    if (player.energy < player.maxEnergy) {
+                        player.energy += 1;
+                        addLog(`【Khí Hải】${player.name} nhận 1 điểm Khí`);
+                    }
+                    if (enemy.energy < enemy.maxEnergy) {
+                        enemy.energy += 1;
+                        addLog(`【Khí Hải】${enemy.displayName} nhận 1 điểm Khí`);
+                    }
+                    break;
+
+                case 'miasma':  // Chướng Khí: Song phương mất 10% máu hiện tại
+                    const playerDamage = Math.round(player.currentHealth * 0.1);
+                    const enemyDamage = Math.round(enemy.currentHealth * 0.1);
+                    player.currentHealth -= playerDamage;
+                    enemy.currentHealth -= enemyDamage;
+                    if (player.currentHealth < 1) player.currentHealth = 1;  // Giữ lại ít nhất 1 điểm
+                    if (enemy.currentHealth < 1) enemy.currentHealth = 1;
+                    addLog(`【Chướng Khí】${player.name} mất ${playerDamage} máu, ${enemy.displayName} mất ${enemyDamage} máu`);
+                    break;
+
+                case 'rejuvenation':  // Hồi Xuân: Song phương hồi phục 10% máu tối đa
+                    const playerHeal = Math.round(player.maxHealth * 0.1);
+                    const enemyHeal = Math.round(enemy.maxHealth * 0.1);
+                    player.currentHealth = Math.min(player.currentHealth + playerHeal, player.maxHealth);
+                    enemy.currentHealth = Math.min(enemy.currentHealth + enemyHeal, enemy.maxHealth);
+                    addLog(`【Hồi Xuân】${player.name} hồi phục ${playerHeal} máu, ${enemy.displayName} hồi phục ${enemyHeal} máu`);
+                    break;
+            }
+
+            updateDisplay();
+        }
+
+        // Kiểm tra xem hiệu ứng địa hình có vô hiệu hóa hành động nào không
+        function isActionDisabledByField(action) {
+            if (activeFieldEffect === null) return false;
+
+            switch (activeFieldEffect.id) {
+                case 'melee':  // Triền Đấu: Vô hiệu hóa Võ Mồm
+                    return action === 'taunt';
+                default:
+                    return false;
+            }
+        }
+
+        // Lấy hệ số sát thương của hiệu ứng địa hình (Sát Ý)
+        function getFieldDamageMultiplier() {
+            if (activeFieldEffect && activeFieldEffect.id === 'killing-intent') {
+                return 1.5;
+            }
+            return 1.0;
+        }
+
+        // Lấy tỷ lệ sát thương bản thân của hiệu ứng địa hình (Sát Ý)
+        function getFieldSelfDamageRatio() {
+            if (activeFieldEffect && activeFieldEffect.id === 'killing-intent') {
+                return 0.25;
+            }
+            return 0;
+        }
+
+        // Kiểm tra xem hiệu ứng địa hình có miễn thương hoàn toàn không (Cố Thủ)
+        function isFieldFullDefense() {
+            return activeFieldEffect && activeFieldEffect.id === 'fortify';
+        }
+
+        // Nhấp vào vùng khác để đóng nhật ký và danh sách hiệu ứng địa hình
+        document.addEventListener('click', function (e) {
+            const turnIndicator = document.getElementById('turn-indicator');
+            const logDropdown = document.getElementById('log-dropdown');
+            const fieldIndicator = document.getElementById('field-effect-indicator');
+            const fieldDropdown = document.getElementById('field-effect-dropdown');
+
+            if (turnIndicator && logDropdown && !turnIndicator.contains(e.target)) {
+                logDropdown.classList.remove('active');
+            }
+
+            if (fieldIndicator && fieldDropdown && !fieldIndicator.contains(e.target)) {
+                fieldDropdown.classList.remove('active');
+                fieldDropdownOpen = false;
+            }
+        });
+
+        // Chọn hành động
+        function selectAction(action) {
+            // Nếu không phải lượt người chơi hoặc đang đợi xác nhận, trả về
+            if (gameState.currentTurn !== 'player' || gameState.waitingForConfirmation) return;
+
+            // Kiểm tra nút có bị vô hiệu hóa không
+            if (document.getElementById(action).classList.contains('disabled')) {
+                return;
+            }
+
+            // Xóa lựa chọn trước đó
+            commandButtons.forEach(btn => btn.classList.remove('selected'));
+
+            // Kiểm tra có đủ năng lượng không
+            if ((action === 'light-attack' && gameState.player.energy < 1) ||
+                (action === 'heavy-attack' && gameState.player.energy < 2) ||
+                (action === 'special' && gameState.player.energy < 5)) {
+                addLog('Năng lượng không đủ, không thể thực hiện hành động này!');
+                return;
+            }
+
+            // Đặt trạng thái đã chọn
+            document.getElementById(action).classList.add('selected');
+            gameState.player.selectedAction = action;
+
+            // Cập nhật hiển thị lựa chọn
+            const actionNames = {
+                'gather': 'Tụ Khí',
+                'defend': 'Phòng Thủ',
+                'light-attack': 'Khinh Công',
+                'heavy-attack': 'Trọng Công',
+                'special': 'Tuyệt Kỹ',
+                'taunt': 'Võ Mồm'
+            };
+            selectedActionText.textContent = actionNames[action];
+
+            // Hiển thị cửa sổ xác nhận
+            confirmModal.style.display = 'flex';
+        }
+
+        // Xác nhận hành động
+        function confirmAction() {
+            if (!gameState.player.selectedAction) return;
+
+            // Đặt trạng thái chờ xác nhận
+            gameState.waitingForConfirmation = true;
+
+            // Vô hiệu hóa nút
+            commandButtons.forEach(btn => {
+                btn.classList.add('disabled');
+            });
+
+            addLog(`${gameState.player.name} chuẩn bị hành động...`);
+
+            // AI kẻ địch chọn hành động
+            selectEnemyAction();
+
+            // Thực hiện kết toán hiệp (giảm độ trễ, tăng tốc độ phản hồi)
+            setTimeout(executeTurn, 300);
+        }
+
+        // 敌人AI选择动作
+        function selectEnemyAction() {
+            const enemy = gameState.enemy;
+            const player = gameState.player;
+            const style = enemy.style || '风'; // 默认风格
+
+            // 检查是否处于挑衅状态（不能使用防御）
+            const canDefend = enemy.tauntedTurns <= 0;
+
+            // 检查场地效果是否禁用嘴炮（缠斗效果）
+            const canTaunt = !isActionDisabledByField('taunt');
+
+            // 玩家气的威胁等级
+            const playerEnergy = player.energy;
+
+            // 嘴炮判定：玩家气满5时，敌人有较高概率嘴炮（缠斗时禁用）
+            if (playerEnergy >= 5 && canTaunt) {
+                if (style === '山' && Math.random() < 0.6) {
+                    enemy.selectedAction = 'taunt';
+                    return;
+                }
+                if (style === '林' && Math.random() < 0.5) {
+                    enemy.selectedAction = 'taunt';
+                    return;
+                }
+                if (style === '火' && Math.random() < 0.5) {
+                    enemy.selectedAction = 'taunt';
+                    return;
+                }
+                if (style === '风' && Math.random() < 0.4) {
+                    enemy.selectedAction = 'taunt';
+                    return;
+                }
+            }
+
+            // 防御判定：玩家气较高时，敌人有概率防御（挑衅状态下不可防御）
+            if (playerEnergy >= 1 && canDefend) {
+                if (style === '山' && Math.random() < 0.5) {
+                    enemy.selectedAction = 'defend';
+                    return;
+                }
+                if (style === '林' && Math.random() < 0.3) {
+                    enemy.selectedAction = 'defend';
+                    return;
+                }
+                if (style === '火' && Math.random() < 0.25) {
+                    enemy.selectedAction = 'defend';
+                    return;
+                }
+                if (style === '风' && Math.random() < 0.25) {
+                    enemy.selectedAction = 'defend';
+                    return;
+                }
+            }
+
+            // 风格主策略：基于能量范围的加权随机选择
+            const styleStrategy = STYLE_STRATEGIES[style];
+            if (styleStrategy) {
+                const energyKey = getEnergyRangeKey(enemy.energy);
+                const options = { ...styleStrategy[energyKey] };
+
+                // 根据能量限制过滤不可用的行动
+                if (enemy.energy < 1) {
+                    delete options['light-attack'];
+                }
+                if (enemy.energy < 2) {
+                    delete options['heavy-attack'];
+                }
+                if (enemy.energy < 5) {
+                    delete options['special'];
+                }
+
+                // 过滤掉无收益的嘴炮选项：玩家已被挑衅且气不足5时，嘴炮无收益
+                if (player.tauntedTurns > 0 && playerEnergy < 5) {
+                    delete options['taunt'];
+                }
+
+                // 场地效果禁用嘴炮（缠斗）
+                if (!canTaunt) {
+                    delete options['taunt'];
+                }
+
+                // 如果过滤后还有选项，使用加权随机选择
+                if (Object.keys(options).length > 0) {
+                    const debugInfo = {
+                        style: style,
+                        energyKey: energyKey
+                    };
+                    enemy.selectedAction = weightedRandom(options, debugInfo);
+                    return;
+                }
+            }
+
+            // 默认行为
+            enemy.selectedAction = 'gather';
+        }
+
+        // 执行回合
+        function executeTurn() {
+            const player = gameState.player;
+            const enemy = gameState.enemy;
+
+            // Lấy hành động của cả hai bên
+            const playerAction = player.selectedAction;
+            const enemyAction = enemy.selectedAction;
+
+            addLog(`${enemy.displayName} đã chọn hành động...`);
+
+            // Thực hiện hiệu ứng và kết toán dựa trên loại hành động (giảm độ trễ, tăng tốc độ phản hồi)
+            setTimeout(() => {
+                // Hiển thị hành động đã chọn của cả hai bên
+                const actionNames = {
+                    'gather': 'Tụ Khí',
+                    'defend': 'Phòng Thủ',
+                    'light-attack': 'Khinh Công',
+                    'heavy-attack': 'Trọng Công',
+                    'special': 'Tuyệt Kỹ',
+                    'taunt': 'Võ Mồm'
+                };
+
+                addLog(`${player.name} đã sử dụng ${actionNames[playerAction]}! ${enemy.displayName} đã sử dụng ${actionNames[enemyAction]}!`);
+
+                // Xử lý kết quả hành động
+                processActions(playerAction, enemyAction);
+
+                // Kiểm tra trò chơi đã kết thúc chưa
+                if (checkGameOver()) {
+                    return;
+                }
+
+                // Tiếp tục hiệp tiếp theo
+                continueGame();
+            }, 200);  // Giảm độ trễ, tăng tốc độ phản hồi
+        }
+
+        // Xử lý kết quả hành động của cả hai bên
+        function processActions(playerAction, enemyAction) {
+            const player = gameState.player;
+            const enemy = gameState.enemy;
+            const gameContainer = document.querySelector('.game-container');
+            const npcPortraitLayer = document.querySelector('.npc-portrait-layer');
+            const playerPortraitLayer = document.querySelector('.player-portrait-layer');
+            const screenFlash = document.querySelector('.screen-flash');
+            let playerWasHit = false;
+            let enemyWasHit = false;
+
+            // Theo dõi trạng thái hoạt ảnh chân dung
+            let playerDealtDamage = false;      // Người chơi có gây sát thương hay không
+            let enemyDealtDamage = false;       // Kẻ địch có gây sát thương hay không
+            let playerSpecialBroken = false;    // Tuyệt kỹ của người chơi có bị Võ Mồm phá hay không
+            let enemySpecialBroken = false;     // Tuyệt kỹ của kẻ địch có bị Võ Mồm phá hay không
+            let playerDamageAction = null;      // Loại tấn công gây sát thương của người chơi
+            let enemyDamageAction = null;       // Loại tấn công gây sát thương của kẻ địch
+            let playerBrokenByTaunt = false;    // Người chơi bị Võ Mồm phá phòng
+            let enemyBrokenByTaunt = false;     // Kẻ địch bị Võ Mồm phá phòng
+            let playerHitBySpecial = false;     // Người chơi bị tuyệt kỹ xuyên phòng thủ
+            let enemyHitBySpecial = false;      // Kẻ địch bị tuyệt kỹ xuyên phòng thủ
+
+            // Hiệu ứng địa hình: Theo dõi tổng sát thương gây ra bởi cả hai bên trong hiệp này (dùng cho sát ý tự tổn thương)
+            let playerTotalDamageDealt = 0;
+            let enemyTotalDamageDealt = 0;
+
+            // Hiệu ứng địa hình: Lấy bội số sát thương
+            const fieldDamageMultiplier = getFieldDamageMultiplier();  // Sát Ý: 1.5 lần
+            const fieldFullDefense = isFieldFullDefense();              // Cố Thủ: Miễn thương hoàn toàn
+
+            // Xử lý Tụ Khí
+            if (playerAction === 'gather') {
+                // Hiển thị hiệu ứng tập khí của người chơi
+                showBattleEffect('player-gather-effect', 1000);
+                if (player.energy < player.maxEnergy) {
+                    player.energy += 1;
+                    addLog(`${player.name} Tụ Khí thành công, năng lượng +1!`);
+                } else {
+                    addLog(`Năng lượng của ${player.name} đã đầy!`);
+                }
+            }
+
+            if (enemyAction === 'gather') {
+                // Hiển thị hiệu ứng tập khí của kẻ địch
+                showBattleEffect('enemy-gather-effect', 1000);
+                if (enemy.energy < enemy.maxEnergy) {
+                    enemy.energy += 1;
+                    addLog(`${enemy.displayName} Tụ Khí thành công, năng lượng +1!`);
+                } else {
+                    addLog(`Năng lượng của ${enemy.displayName} đã đầy!`);
+                }
+            }
+
+            // Xử lý trạng thái phòng thủ
+            const playerDefending = playerAction === 'defend';
+            const enemyDefending = enemyAction === 'defend';
+
+            if (playerDefending) {
+                playerCharacter.classList.add('player-defend');
+                setTimeout(() => {
+                    playerCharacter.classList.remove('player-defend');
+                }, 1000);
+                addLog(`${player.name} vào trạng thái phòng thủ!`);
+            }
+
+            if (enemyDefending) {
+                enemyCharacter.classList.add('enemy-defend');
+                setTimeout(() => {
+                    enemyCharacter.classList.remove('enemy-defend');
+                }, 1000);
+                addLog(`${enemy.displayName} vào trạng thái phòng thủ!`);
+            }
+
+            // Xử lý logic Võ Mồm
+            let playerTauntSuccess = false;
+            let enemyTauntSuccess = false;
+
+            // Cả hai bên dùng Võ Mồm cùng lúc, không có gì xảy ra
+            if (playerAction === 'taunt' && enemyAction === 'taunt') {
+                // Cả hai bên đều hiển thị hiệu ứng Võ Mồm
+                showBattleEffect('player-taunt-effect', 1500);
+                showBattleEffect('enemy-taunt-effect', 1500);
+                addLog('Cả hai bên đều dùng Võ Mồm, bất phân thắng bại!');
+            } else {
+                // Hiệu quả của Võ Mồm đối với Phòng Thủ: Khiêu khích
+                if (playerAction === 'taunt' && enemyDefending) {
+                    // Người chơi Võ Mồm thành công, hiển thị hiệu ứng
+                    showBattleEffect('player-taunt-effect', 1500);
+                    // Người chơi Võ Mồm vs Kẻ địch Phòng Thủ: Kẻ địch Khí -1, vào trạng thái khiêu khích
+                    if (enemy.energy > 0) {
+                        enemy.energy -= 1;
+                        addLog(`Võ Mồm của ${player.name} đã chọc giận ${enemy.displayName}! ${enemy.displayName} Khí -1, vào trạng thái bị khiêu khích!`);
+                    } else {
+                        addLog(`Võ Mồm của ${player.name} đã chọc giận ${enemy.displayName}! ${enemy.displayName} vào trạng thái bị khiêu khích!`);
+                    }
+                    enemy.tauntedTurns = 3;
+                    enemyWasHit = true;
+                    enemyBrokenByTaunt = true;  // Kẻ địch bị Võ Mồm phá phòng
+                }
+
+                if (enemyAction === 'taunt' && playerDefending) {
+                    // Kẻ địch Võ Mồm thành công, hiển thị hiệu ứng
+                    showBattleEffect('enemy-taunt-effect', 1500);
+                    // Kẻ địch Võ Mồm vs Người chơi Phòng Thủ: Người chơi Khí -1, vào trạng thái khiêu khích
+                    if (player.energy > 0) {
+                        player.energy -= 1;
+                        addLog(`Võ Mồm của ${enemy.displayName} đã chọc giận ${player.name}! ${player.name} Khí -1, vào trạng thái bị khiêu khích!`);
+                    } else {
+                        addLog(`Võ Mồm của ${enemy.displayName} đã chọc giận ${player.name}! ${player.name} vào trạng thái bị khiêu khích!`);
+                    }
+                    player.tauntedTurns = 3;
+                    playerWasHit = true;
+                    playerBrokenByTaunt = true;  // Người chơi bị Võ Mồm phá phòng
+                }
+
+                // Hiệu quả của Võ Mồm đối với Tuyệt Kỹ: Vô hiệu hóa sát thương (giữ nguyên logic gốc)
+                if (playerAction === 'taunt' && enemyAction === 'special') {
+                    // Người chơi Võ Mồm phá Tuyệt Kỹ, hiển thị hiệu ứng
+                    showBattleEffect('player-taunt-effect', 1500);
+                    playerTauntSuccess = true;
+                    enemySpecialBroken = true;  // Tuyệt kỹ của kẻ địch bị phá
+                    addLog(`Võ Mồm của ${player.name} đã vô hiệu hóa sát thương Tuyệt Kỹ của ${enemy.displayName}!`);
+                }
+
+                if (enemyAction === 'taunt' && playerAction === 'special') {
+                    // Kẻ địch Võ Mồm phá Tuyệt Kỹ, hiển thị hiệu ứng
+                    showBattleEffect('enemy-taunt-effect', 1500);
+                    enemyTauntSuccess = true;
+                    playerSpecialBroken = true;  // Tuyệt kỹ của người chơi bị phá
+                    addLog(`Võ Mồm của ${enemy.displayName} đã vô hiệu hóa sát thương Tuyệt Kỹ của ${player.name}!`);
+                }
+
+                // Hiệu quả của Võ Mồm đối với các hành động khác (Tụ Khí, Khinh Công, Trọng Công): Không có hiệu quả đặc biệt, nhưng vẫn hiển thị hiệu ứng
+                if (playerAction === 'taunt' && !enemyDefending && enemyAction !== 'special' && enemyAction !== 'taunt') {
+                    showBattleEffect('player-taunt-effect', 1500);
+                    addLog(`${player.name} dùng Võ Mồm một hồi, nhưng ${enemy.displayName} không bị lay chuyển!`);
+                }
+                if (enemyAction === 'taunt' && !playerDefending && playerAction !== 'special' && playerAction !== 'taunt') {
+                    showBattleEffect('enemy-taunt-effect', 1500);
+                    addLog(`${enemy.displayName} dùng Võ Mồm một hồi, nhưng ${player.name} không bị lay chuyển!`);
+                }
+            }
+
+            // 处理绝招（无视防御）
+            if (playerAction === 'special') {
+                // Bất kể Tuyệt Kỹ có bị Võ Mồm vô hiệu hóa hay không, đều tiêu hao năng lượng
+                player.energy -= 5;
+                playerCharacter.classList.add('player-special');
+
+                if (!enemyTauntSuccess) {
+                    enemyCharacter.classList.add('enemy-hit');
+                    // Hiển thị hiệu ứng kẻ địch bị tấn công
+                    showBattleEffect('enemy-hit-effect', 1200);
+
+                    setTimeout(() => {
+                        enemyCharacter.classList.remove('enemy-hit');
+                    }, 1000);
+
+                    const damage = Math.round(player.basicDamage * 3 * damageMultiplier * fieldDamageMultiplier);
+                    enemy.currentHealth -= damage;
+                    playerTotalDamageDealt += damage;  // Theo dõi sát thương để tính sát thương phản hồi của Sát Ý
+                    addLog(`${player.name} sử dụng Tuyệt Kỹ, gây ${damage} sát thương lên ${enemy.displayName}!`);
+                    enemyWasHit = true;
+                    playerDealtDamage = true;           // Người chơi gây sát thương
+                    playerDamageAction = 'special';     // Ghi lại loại tấn công
+                    if (enemyDefending) {
+                        enemyHitBySpecial = true;       // Phòng thủ của kẻ địch bị Tuyệt Kỹ xuyên qua
+                    }
+                } else {
+                    addLog(`${player.name} sử dụng Tuyệt Kỹ, nhưng sát thương đã bị Võ Mồm của ${enemy.displayName} vô hiệu hóa!`);
+                }
+
+                setTimeout(() => {
+                    playerCharacter.classList.remove('player-special');
+                }, 1000);
+
+                // Vô hiệu hóa đòn tấn công thường của kẻ địch
+                if (enemyAction === 'light-attack' || enemyAction === 'heavy-attack') {
+                    addLog(`Đòn tấn công của ${enemy.displayName} đã bị Tuyệt Kỹ của ${player.name} vô hiệu hóa!`);
+                    // Năng lượng kẻ địch tiêu hao không được hoàn trả
+                    if (enemyAction === 'light-attack') enemy.energy -= 1;
+                    if (enemyAction === 'heavy-attack') enemy.energy -= 2;
+                }
+            }
+
+            if (enemyAction === 'special') {
+                // Bất kể Tuyệt Kỹ có bị Võ Mồm vô hiệu hóa hay không, đều tiêu hao năng lượng
+                enemy.energy -= 5;
+                enemyCharacter.classList.add('enemy-special');
+
+                if (!playerTauntSuccess) {
+                    playerCharacter.classList.add('player-hit');
+                    // Hiển thị hiệu ứng người chơi bị tấn công
+                    showBattleEffect('player-hit-effect', 1200);
+
+                    setTimeout(() => {
+                        playerCharacter.classList.remove('player-hit');
+                    }, 1000);
+
+                    const damage = Math.round(enemy.basicDamage * 3 * fieldDamageMultiplier / defenseMultiplier);
+                    player.currentHealth -= damage;
+                    enemyTotalDamageDealt += damage;  // Theo dõi sát thương để tính sát thương phản hồi của Sát Ý
+                    addLog(`${enemy.displayName} sử dụng Tuyệt Kỹ, gây ${damage} sát thương lên ${player.name}!`);
+                    playerWasHit = true;
+                    enemyDealtDamage = true;           // Kẻ địch gây sát thương
+                    enemyDamageAction = 'special';     // Ghi lại loại tấn công
+                    if (playerDefending) {
+                        playerHitBySpecial = true;     // Phòng thủ của người chơi bị Tuyệt Kỹ xuyên qua
+                    }
+                } else {
+                    addLog(`${enemy.displayName} sử dụng Tuyệt Kỹ, nhưng sát thương đã bị Võ Mồm của ${player.name} vô hiệu hóa!`);
+                }
+
+                setTimeout(() => {
+                    enemyCharacter.classList.remove('enemy-special');
+                }, 1000);
+
+                // Vô hiệu hóa đòn tấn công thường của người chơi
+                if (playerAction === 'light-attack' || playerAction === 'heavy-attack') {
+                    addLog(`Đòn tấn công của ${player.name} đã bị Tuyệt Kỹ của ${enemy.displayName} vô hiệu hóa!`);
+                    // Năng lượng người chơi tiêu hao không được hoàn trả
+                    if (playerAction === 'light-attack') player.energy -= 1;
+                    if (playerAction === 'heavy-attack') player.energy -= 2;
+                }
+            }
+
+            // Nếu không bị Tuyệt Kỹ vô hiệu hóa, xử lý Trọng Công
+            if (playerAction === 'heavy-attack' &&
+                enemyAction !== 'special' &&
+                playerAction !== 'special') {
+                player.energy -= 2;
+
+                // Kiểm tra xem có bị phòng thủ hoặc vô hiệu hóa Khinh Công của đối phương không
+                if (enemyDefending) {
+                    playerCharacter.classList.add('player-attack');
+                    // enemyCharacter.classList.add('enemy-hit');
+
+                    setTimeout(() => {
+                        playerCharacter.classList.remove('player-attack');
+                        // enemyCharacter.classList.remove('enemy-hit');
+                    }, 600);
+
+                    // Phòng thủ Trọng Công chịu 25% sát thương (Miễn thương hoàn toàn dưới hiệu ứng Cố Thủ)
+                    const reducedDamage = fieldFullDefense ? 0 : Math.round(player.basicDamage * 1.5 * 0.25 * damageMultiplier * fieldDamageMultiplier);
+                    enemy.currentHealth -= reducedDamage;
+                    playerTotalDamageDealt += reducedDamage;
+                    // Hiển thị hiệu ứng kẻ địch bị tấn công
+                    showBattleEffect('enemy-hit-effect', 1000);
+                    if (fieldFullDefense) {
+                        addLog(`Trọng Công của ${player.name} đã bị ${enemy.displayName} phòng thủ hoàn toàn!`);
+                    } else {
+                        addLog(`Trọng Công của ${player.name} đã bị ${enemy.displayName} phòng thủ, nhưng vẫn gây ${reducedDamage} sát thương!`);
+                    }
+                    enemyWasHit = true;
+                    playerDealtDamage = true;
+                    playerDamageAction = 'heavy-attack';
+                } else if (enemyAction === 'light-attack') {
+                    // Trọng Công khắc chế Khinh Công
+                    playerCharacter.classList.add('player-attack');
+                    enemyCharacter.classList.add('enemy-hit');
+                    // Hiển thị hiệu ứng kẻ địch bị tấn công
+                    showBattleEffect('enemy-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        playerCharacter.classList.remove('player-attack');
+                        enemyCharacter.classList.remove('enemy-hit');
+                    }, 600);
+
+                    const damage = Math.round(player.basicDamage * 1.5 * damageMultiplier * fieldDamageMultiplier);
+                    enemy.currentHealth -= damage;
+                    playerTotalDamageDealt += damage;
+                    enemy.energy -= 1; // Tiêu hao năng lượng của kẻ địch
+                    addLog(`Trọng Công của ${player.name} đã vô hiệu hóa Khinh Công của ${enemy.displayName}, và gây ${damage} sát thương!`);
+                    enemyWasHit = true;
+                    playerDealtDamage = true;
+                    playerDamageAction = 'heavy-attack';
+                } else {
+                    playerCharacter.classList.add('player-attack');
+                    enemyCharacter.classList.add('enemy-hit');
+                    // Hiển thị hiệu ứng kẻ địch bị tấn công
+                    showBattleEffect('enemy-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        playerCharacter.classList.remove('player-attack');
+                        enemyCharacter.classList.remove('enemy-hit');
+                    }, 600);
+
+                    const damage = Math.round(player.basicDamage * 1.5 * damageMultiplier * fieldDamageMultiplier);
+                    enemy.currentHealth -= damage;
+                    playerTotalDamageDealt += damage;
+                    addLog(`Trọng Công của ${player.name} gây ${damage} sát thương lên ${enemy.displayName}!`);
+                    enemyWasHit = true;
+                    playerDealtDamage = true;
+                    playerDamageAction = 'heavy-attack';
+                }
+            }
+
+            if (enemyAction === 'heavy-attack' &&
+                playerAction !== 'special' &&
+                enemyAction !== 'special') {
+                enemy.energy -= 2;
+
+                // Kiểm tra xem có bị phòng thủ hoặc vô hiệu hóa Khinh Công của đối phương không
+                if (playerDefending) {
+                    enemyCharacter.classList.add('enemy-attack');
+                    // playerCharacter.classList.add('player-hit');
+                    // Hiển thị hiệu ứng người chơi bị tấn công (Hiển thị ngay cả khi phòng thủ)
+                    showBattleEffect('player-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        enemyCharacter.classList.remove('enemy-attack');
+                        // playerCharacter.classList.remove('player-hit');
+                    }, 600);
+
+                    // Phòng thủ Trọng Công chịu 20% sát thương (Miễn thương hoàn toàn dưới hiệu ứng Cố Thủ)
+                    const reducedDamage = fieldFullDefense ? 0 : Math.round(enemy.basicDamage * 1.5 * 0.2 * fieldDamageMultiplier / defenseMultiplier);
+                    player.currentHealth -= reducedDamage;
+                    enemyTotalDamageDealt += reducedDamage;
+                    if (fieldFullDefense) {
+                        addLog(`Trọng Công của ${enemy.displayName} đã bị ${player.name} phòng thủ hoàn toàn!`);
+                    } else {
+                        addLog(`Trọng Công của ${enemy.displayName} đã bị ${player.name} phòng thủ, nhưng vẫn gây ${reducedDamage} sát thương!`);
+                    }
+                    playerWasHit = true;
+                    enemyDealtDamage = true;
+                    enemyDamageAction = 'heavy-attack';
+                } else if (playerAction === 'light-attack') {
+                    // Trọng Công khắc chế Khinh Công
+                    enemyCharacter.classList.add('enemy-attack');
+                    playerCharacter.classList.add('player-hit');
+                    // Hiển thị hiệu ứng người chơi bị tấn công
+                    showBattleEffect('player-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        enemyCharacter.classList.remove('enemy-attack');
+                        playerCharacter.classList.remove('player-hit');
+                    }, 600);
+
+                    const damage = Math.round(enemy.basicDamage * 1.5 * fieldDamageMultiplier / defenseMultiplier);
+                    player.currentHealth -= damage;
+                    enemyTotalDamageDealt += damage;
+                    player.energy -= 1; // Tiêu hao năng lượng người chơi
+                    addLog(`Trọng Công của ${enemy.displayName} đã vô hiệu hóa Khinh Công của ${player.name}, và gây ${damage} sát thương!`);
+                    playerWasHit = true;
+                    enemyDealtDamage = true;
+                    enemyDamageAction = 'heavy-attack';
+                } else {
+                    enemyCharacter.classList.add('enemy-attack');
+                    playerCharacter.classList.add('player-hit');
+                    // Hiển thị hiệu ứng người chơi bị tấn công
+                    showBattleEffect('player-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        enemyCharacter.classList.remove('enemy-attack');
+                        playerCharacter.classList.remove('player-hit');
+                    }, 600);
+
+                    const damage = Math.round(enemy.basicDamage * 1.5 * fieldDamageMultiplier / defenseMultiplier);
+                    player.currentHealth -= damage;
+                    enemyTotalDamageDealt += damage;
+                    addLog(`Trọng Công của ${enemy.displayName} gây ${damage} sát thương lên ${player.name}!`);
+                    playerWasHit = true;
+                    enemyDealtDamage = true;
+                    enemyDamageAction = 'heavy-attack';
+                }
+            }
+
+            // Nếu không bị Trọng Công hoặc Tuyệt Kỹ vô hiệu hóa, xử lý Khinh Công
+            if (playerAction === 'light-attack' &&
+                enemyAction !== 'heavy-attack' &&
+                enemyAction !== 'special') {
+                player.energy -= 1;
+
+                // Kiểm tra xem có bị phòng thủ không
+                if (enemyDefending) {
+                    playerCharacter.classList.add('player-attack');
+                    // enemyCharacter.classList.add('enemy-hit');
+                    // Hiển thị hiệu ứng kẻ địch bị tấn công (Hiển thị ngay cả khi phòng thủ)
+                    showBattleEffect('enemy-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        playerCharacter.classList.remove('player-attack');
+                        // enemyCharacter.classList.remove('enemy-hit');
+                    }, 600);
+
+                    // Phòng thủ Khinh Công chịu 15% sát thương (Miễn thương hoàn toàn dưới hiệu ứng Cố Thủ)
+                    const reducedDamage = fieldFullDefense ? 0 : Math.round(player.basicDamage * 0.15 * damageMultiplier * fieldDamageMultiplier);
+                    enemy.currentHealth -= reducedDamage;
+                    playerTotalDamageDealt += reducedDamage;
+                    if (fieldFullDefense) {
+                        addLog(`Khinh Công của ${player.name} đã bị ${enemy.displayName} phòng thủ hoàn toàn!`);
+                    } else {
+                        addLog(`Khinh Công của ${player.name} đã bị ${enemy.displayName} phòng thủ, nhưng vẫn gây ${reducedDamage} sát thương!`);
+                    }
+                    enemyWasHit = true;
+                    playerDealtDamage = true;
+                    playerDamageAction = 'light-attack';
+                } else {
+                    playerCharacter.classList.add('player-attack');
+                    enemyCharacter.classList.add('enemy-hit');
+                    // Hiển thị hiệu ứng kẻ địch bị tấn công
+                    showBattleEffect('enemy-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        playerCharacter.classList.remove('player-attack');
+                        enemyCharacter.classList.remove('enemy-hit');
+                    }, 600);
+
+                    const damage = Math.round(player.basicDamage * damageMultiplier * fieldDamageMultiplier);
+                    enemy.currentHealth -= damage;
+                    playerTotalDamageDealt += damage;
+                    addLog(`Khinh Công của ${player.name} gây ${damage} sát thương lên ${enemy.displayName}!`);
+                    enemyWasHit = true;
+                    playerDealtDamage = true;
+                    playerDamageAction = 'light-attack';
+                }
+            }
+
+            if (enemyAction === 'light-attack' &&
+                playerAction !== 'heavy-attack' &&
+                playerAction !== 'special') {
+                enemy.energy -= 1;
+
+                // Kiểm tra xem có bị phòng thủ không
+                if (playerDefending) {
+                    enemyCharacter.classList.add('enemy-attack');
+                    // playerCharacter.classList.add('player-hit');
+                    // Hiển thị hiệu ứng người chơi bị tấn công (Hiển thị ngay cả khi phòng thủ)
+                    showBattleEffect('player-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        enemyCharacter.classList.remove('enemy-attack');
+                        // playerCharacter.classList.remove('player-hit');
+                    }, 600);
+
+                    // Phòng thủ Khinh Công chịu 15% sát thương (Miễn thương hoàn toàn dưới hiệu ứng Cố Thủ)
+                    const reducedDamage = fieldFullDefense ? 0 : Math.round(enemy.basicDamage * 0.15 * fieldDamageMultiplier / defenseMultiplier);
+                    player.currentHealth -= reducedDamage;
+                    enemyTotalDamageDealt += reducedDamage;
+                    if (fieldFullDefense) {
+                        addLog(`Khinh Công của ${enemy.displayName} đã bị ${player.name} phòng thủ hoàn toàn!`);
+                    } else {
+                        addLog(`Khinh Công của ${enemy.displayName} đã bị ${player.name} phòng thủ, nhưng vẫn gây ${reducedDamage} sát thương!`);
+                    }
+                    playerWasHit = true;
+                    enemyDealtDamage = true;
+                    enemyDamageAction = 'light-attack';
+                } else {
+                    enemyCharacter.classList.add('enemy-attack');
+                    playerCharacter.classList.add('player-hit');
+                    // Hiển thị hiệu ứng người chơi bị tấn công
+                    showBattleEffect('player-hit-effect', 1000);
+
+                    setTimeout(() => {
+                        enemyCharacter.classList.remove('enemy-attack');
+                        playerCharacter.classList.remove('player-hit');
+                    }, 600);
+
+                    const damage = Math.round(enemy.basicDamage * fieldDamageMultiplier / defenseMultiplier);
+                    player.currentHealth -= damage;
+                    enemyTotalDamageDealt += damage;
+                    addLog(`Khinh Công của ${enemy.displayName} gây ${damage} sát thương lên ${player.name}!`);
+                    playerWasHit = true;
+                    enemyDealtDamage = true;
+                    enemyDamageAction = 'light-attack';
+                }
+            }
+
+            // Đảm bảo lượng máu không bị âm
+            if (player.currentHealth < 0) player.currentHealth = 0;
+            if (enemy.currentHealth < 0) enemy.currentHealth = 0;
+
+            // Hiệu ứng địa hình: Sát Ý phản phệ (Người tấn công chịu 25% sát thương gây ra)
+            const selfDamageRatio = getFieldSelfDamageRatio();
+            if (selfDamageRatio > 0) {
+                if (playerTotalDamageDealt > 0) {
+                    const playerSelfDamage = Math.round(playerTotalDamageDealt * selfDamageRatio);
+                    player.currentHealth -= playerSelfDamage;
+                    if (player.currentHealth < 0) player.currentHealth = 0;
+                    addLog(`【Sát Ý Phản Phệ】${player.name} chịu ${playerSelfDamage} sát thương phản hồi!`);
+                }
+                if (enemyTotalDamageDealt > 0) {
+                    const enemySelfDamage = Math.round(enemyTotalDamageDealt * selfDamageRatio);
+                    enemy.currentHealth -= enemySelfDamage;
+                    if (enemy.currentHealth < 0) enemy.currentHealth = 0;
+                    addLog(`【Sát Ý Phản Phệ】${enemy.displayName} chịu ${enemySelfDamage} sát thương phản hồi!`);
+                }
+            }
+
+            // 受击反馈动画（与立绘受击状态判断一致）
+            // 玩家真正受击的情况：绝招被破、被嘴炮破防、被绝招无视防御、非防御状态被打
+            const playerTrueHit = playerSpecialBroken || playerBrokenByTaunt || playerHitBySpecial || (playerWasHit && !playerDefending);
+            // 敌人真正受击的情况：绝招被破、被嘴炮破防、被绝招无视防御、非防御状态被打
+            const enemyTrueHit = enemySpecialBroken || enemyBrokenByTaunt || enemyHitBySpecial || (enemyWasHit && !enemyDefending);
+
+            if (playerTrueHit) {
+                gameContainer.classList.add('shake');
+                screenFlash.classList.add('active');
+                playerPortraitLayer.classList.add('shake');
+                setTimeout(() => {
+                    gameContainer.classList.remove('shake');
+                    screenFlash.classList.remove('active');
+                    playerPortraitLayer.classList.remove('shake');
+                }, 400);
+            }
+            if (enemyTrueHit) {
+                npcPortraitLayer.classList.add('shake');
+                setTimeout(() => {
+                    npcPortraitLayer.classList.remove('shake');
+                }, 400);
+            }
+
+            // ========== 立绘动画逻辑 ==========
+            // 确定玩家立绘状态
+            let playerPortraitState = '待机';
+            let playerGlowClass = null;
+
+            if (playerSpecialBroken) {
+                // 绝招被嘴炮破，显示受击
+                playerPortraitState = '受击';
+            } else if (playerDealtDamage) {
+                // 造成伤害优先显示攻击
+                playerPortraitState = '攻击';
+                playerGlowClass = getGlowClass(playerDamageAction, true);
+            } else if (playerBrokenByTaunt || playerHitBySpecial) {
+                // 被嘴炮破防或被绝招无视防御，显示受击
+                playerPortraitState = '受击';
+            } else if (playerDefending) {
+                // 防御状态（正常防御轻/重攻击）
+                playerPortraitState = '防御';
+            } else if (playerWasHit) {
+                // 只受伤显示受击（非防御情况下被打）
+                playerPortraitState = '受击';
+            }
+
+            // 确定敌人立绘状态
+            let enemyPortraitState = '待机';
+            let enemyGlowClass = null;
+
+            if (enemySpecialBroken) {
+                // 绝招被嘴炮破，显示受击
+                enemyPortraitState = '受击';
+            } else if (enemyDealtDamage) {
+                // 造成伤害优先显示攻击
+                enemyPortraitState = '攻击';
+                enemyGlowClass = getGlowClass(enemyDamageAction, true);
+            } else if (enemyBrokenByTaunt || enemyHitBySpecial) {
+                // 被嘴炮破防或被绝招无视防御，显示受击
+                enemyPortraitState = '受击';
+            } else if (enemyDefending) {
+                // 防御状态（正常防御轻/重攻击）
+                enemyPortraitState = '防御';
+            } else if (enemyWasHit) {
+                // 只受伤显示受击（非防御情况下被打）
+                enemyPortraitState = '受击';
+            }
+
+            // 应用立绘状态
+            setPortraitState(true, playerPortraitState, playerGlowClass);
+            setPortraitState(false, enemyPortraitState, enemyGlowClass);
+
+            // 1.0秒后恢复待机状态
+            setTimeout(() => {
+                resetPortraitsToIdle();
+            }, 1000);
+
+            // 更新显示
+            updateDisplay();
+        }
+
+        // 继续游戏
+        function continueGame() {
+            // 重置选择状态
+            gameState.player.selectedAction = null;
+            gameState.enemy.selectedAction = null;
+            gameState.waitingForConfirmation = false;
+            selectedActionText.textContent = '无';
+
+            // Giảm bộ đếm trạng thái khiêu khích
+            if (gameState.player.tauntedTurns > 0) {
+                gameState.player.tauntedTurns--;
+                if (gameState.player.tauntedTurns === 0) {
+                    addLog(`Trạng thái khiêu khích của ${gameState.player.name} đã kết thúc.`);
+                }
+            }
+            if (gameState.enemy.tauntedTurns > 0) {
+                gameState.enemy.tauntedTurns--;
+                if (gameState.enemy.tauntedTurns === 0) {
+                    addLog(`Trạng thái khiêu khích của ${gameState.enemy.displayName} đã kết thúc.`);
+                }
+            }
+
+            // Xử lý kết thúc hiệu ứng địa hình
+            processFieldEffectTurnEnd();
+
+            // Tăng số hiệp
+            gameState.turnNumber++;
+
+            // Kiểm tra và kích hoạt hiệu ứng địa hình mới
+            checkFieldEffectTrigger();
+
+            // Áp dụng hiệu ứng địa hình khi bắt đầu hiệp
+            setTimeout(() => {
+                applyFieldEffectOnTurnStart();
+
+                // Kiểm tra xem trò chơi có kết thúc do hiệu ứng địa hình không
+                if (checkGameOver()) {
+                    return;
+                }
+
+                // Cập nhật hiển thị
+                updateDisplay();
+
+                // Tiếp tục trò chơi
+                addLog('Chuẩn bị hiệp tiếp theo...');
+
+                // Cập nhật chỉ báo hiệp
+                setTimeout(() => {
+                    addLog('Vui lòng chọn hành động...');
+                }, 500);
+            }, activeFieldEffect ? 500 : 0);  // Nếu có hiệu ứng địa hình, trễ một chút để người chơi nhìn rõ
+        }
+
+        // Kiểm tra trò chơi đã kết thúc chưa
+        function checkGameOver() {
+            if (gameState.player.currentHealth <= 0) {
+                addLog(`${gameState.player.name} đã bị đánh bại! Trò chơi kết thúc.`);
+                gameEnd(false);
+                return true;
+            } else if (gameState.enemy.currentHealth <= 0) {
+                addLog(`${gameState.enemy.displayName} đã bị đánh bại! Chiến thắng!`);
+                gameEnd(true);
+                return true;
+            }
+            return false;
+        }
+
+        // Tích hợp hệ thống theo lượt - Kết thúc trò chơi
+        function gameEnd(isVictory) {
+            // Vô hiệu hóa tất cả các nút
+            commandButtons.forEach(btn => {
+                btn.classList.add('disabled');
+            });
+
+            // Lấy tên nhân vật
+            const playerName = gameState.player.name;
+            const enemyName = gameState.enemy.displayName;
+
+            // Thiết lập nội dung cửa sổ bật lên
+            if (isVictory) {
+                gameOverTitle.textContent = 'Chiến Thắng';
+                gameOverMessage.textContent = `${playerName} đã chiến thắng ${enemyName}!`;
+                addLog('Chúc mừng bạn đã giành chiến thắng!');
+            } else {
+                gameOverTitle.textContent = 'Thất Bại';
+                gameOverMessage.textContent = `${playerName} đã bại dưới tay ${enemyName}!`;
+                addLog('Trò chơi kết thúc, hãy cố gắng lần sau!');
+            }
+
+            // 检查是否在iframe中运行
+            const isInIframe = window.parent !== window;
+
+            if (isInIframe) {
+                // 在iframe中，隐藏重新开始按钮和整个footer
+                document.getElementById('game-over-footer').style.display = 'none';
+
+                // 显示游戏结束弹窗
+                gameOverModal.style.display = 'flex';
+
+                // 3秒后自动退出（稍微延长一点时间让玩家看到结果）
+                setTimeout(() => {
+                    exitBattle(isVictory ? 'victory' : 'defeat');
+                }, 3000);
+            } else {
+                // 不在iframe中，显示重新开始按钮
+                document.getElementById('game-over-footer').style.display = 'flex';
+
+                // 显示游戏结束弹窗
+                gameOverModal.style.display = 'flex';
+            }
+        }
+
+
+        // 键盘事件处理
+        function handleKeyPress(event) {
+            // 如果道具弹窗显示中，按ESC关闭
+            const itemModal = document.getElementById('item-modal');
+            if (itemModal && itemModal.style.display === 'flex' && event.key === 'Escape') {
+                closeItemModal();
+                return;
+            }
+
+            // 如果弹窗显示中，按ESC关闭
+            if (confirmModal.style.display === 'flex' && event.key === 'Escape') {
+                confirmModal.style.display = 'none'; gameState.player.selectedAction = null;
+                updateDisplay(); return;
+            }
+
+
+            // 如果弹窗显示中，按Enter确认
+            if (confirmModal.style.display === 'flex' && event.key === 'Enter') {
+                confirmModal.style.display = 'none';
+                confirmAction();
+                return;
+            }
+
+            // 如果不是玩家回合或正在等待确认，返回
+            if (gameState.currentTurn !== 'player' || gameState.waitingForConfirmation) return;
+
+            const key = event.key.toUpperCase();
+
+            switch (key) {
+                case 'Q':
+                    selectAction('gather');
+                    break;
+                case 'W':
+                    selectAction('defend');
+                    break;
+                case 'E':
+                    selectAction('light-attack');
+                    break;
+                case 'R':
+                    selectAction('heavy-attack');
+                    break;
+                case 'T':
+                    selectAction('special');
+                    break;
+                case 'Y':
+                    selectAction('taunt');
+                    break;
+                case 'U':
+                    openItemModal();
+                    break;
+            }
+        }
+
+        // 初始化游戏 
+        // 动态设置1.46比例的函数 
+        function setAspectRatio() {
+            const gameContainer = document.querySelector('.game-container');
+            if (!gameContainer) return;
+
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // 计算1.46比例的尺寸（与主界面viewport一致）
+            const aspectRatio = 1.46;
+            let gameWidth, gameHeight;
+
+            // 优先基于宽度计算（高度为宽度的 1/1.46 ≈ 0.685）
+            gameWidth = viewportWidth;
+            gameHeight = viewportWidth / aspectRatio;
+
+            // 如果计算出的高度超过视口高度，则根据高度反推宽度
+            if (gameHeight > viewportHeight) {
+                gameHeight = viewportHeight;
+                gameWidth = viewportHeight * aspectRatio;
+            }
+
+            // 确保不会超出边界
+            gameWidth = Math.min(gameWidth, viewportWidth);
+            gameHeight = Math.min(gameHeight, viewportHeight);
+
+            // 应用尺寸
+            gameContainer.style.width = `${gameWidth}px`;
+            gameContainer.style.height = `${gameHeight}px`;
+
+            // 确保容器紧贴顶部
+            gameContainer.style.marginTop = '0';
+
+            // 水平居中（如果宽度小于视口宽度）
+            if (gameWidth < viewportWidth) {
+                gameContainer.style.marginLeft = `${(viewportWidth - gameWidth) / 2}px`;
+                gameContainer.style.marginRight = 'auto';
+            } else {
+                gameContainer.style.marginLeft = '0';
+                gameContainer.style.marginRight = '0';
+            }
+
+            console.log(`游戏容器尺寸: ${gameWidth}x${gameHeight}, 视口: ${viewportWidth}x${viewportHeight}, 比例: ${(gameWidth / gameHeight).toFixed(2)}`);
+        }
+
+        // 窗口大小变化时重新设置比例 
+        function handleResize() {
+            setAspectRatio();
+        }
+
+        // 初始化尺寸设置 
+        function initAspectRatio() {
+            setAspectRatio();
+
+            // 监听窗口大小变化
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('orientationchange', () => {
+                // 延迟执行，等待方向变化完成
+                setTimeout(setAspectRatio, 100);
+            });
+        }
+
+        // 修改原有的DOMContentLoaded事件监听 
+        document.addEventListener('DOMContentLoaded', () => {
+            // 首先设置4:3比例 
+            initAspectRatio();
+
+            // 设置主背景
+            const gameContainer = document.querySelector('.game-container');
+            if (gameContainer) {
+                gameContainer.style.backgroundImage = `url('${GAME_BG_URL}')`;
+            }
+
+            // 设置弹窗背景 - 排除道具弹窗
+            const modalContents = document.querySelectorAll('.modal-content');
+            modalContents.forEach(modal => {
+                modal.style.background = `url('${MODAL_BG_URL}') center center / cover`;
+            });
+
+            // 道具弹窗使用不透明纯色背景
+            const itemModalContent = document.querySelector('.item-modal-content');
+            if (itemModalContent) {
+                itemModalContent.style.background = 'linear-gradient(135deg, #1a1410 0%, #2a2018 50%, #1a1410 100%)';
+            }
+
+            // 初始化游戏
+            initGame();
+        });
+
+    </script>
+</body>
+
+</html>

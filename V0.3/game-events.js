@@ -188,7 +188,7 @@ function displayBattleEvent(event) {
 
         if (enemyInfo['Phần thưởng chiến đấu']) {
             const reward = enemyInfo['Phần thưởng chiến đấu'];
-            rewardText.textContent = `Phần thưởng chiến thắng: ${reward['Loại']}+${reward['Giá trị']}`;
+            rewardText.textContent = `Phần thưởng chiến thắng: ${translateReward(reward['Loại'])}+${reward['Giá trị']}`;
             currentBattleReward = reward;
         }
     }
@@ -653,7 +653,7 @@ function setupMessageListeners() {
                             // 人物数值
                             playerStats[reward.type] += reward.value;
                         }
-                        resultMessage += `<br>${reward.type}: +${reward.value}`;
+                        resultMessage += `<br>${translateReward(reward.type)}: +${reward.value}`;
                         checkAllValueRanges();
                         updateStatsDisplay();
                     }
@@ -690,7 +690,7 @@ function setupMessageListeners() {
                     let rewardMessage = '';
                     if (currentBattleReward) {
                         applyBattleReward(currentBattleReward);
-                        rewardMessage = `<br>Nhận thưởng: ${currentBattleReward['Loại']}+${currentBattleReward['Giá trị']}`;
+                        rewardMessage = `<br>Nhận thưởng: ${translateReward(currentBattleReward['Loại'])}+${currentBattleReward['Giá trị']}`;
                     }
                     await handleMessageOutput(currentBattleEvent['Mô tả sự kiện'] +
                         `<br><br>Bạn đã chiến thắng khi đối đầu với ${currentBattleEvent['Thông tin kẻ địch']['Tên']}!` +

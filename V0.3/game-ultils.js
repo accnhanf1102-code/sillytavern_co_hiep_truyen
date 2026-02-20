@@ -464,6 +464,30 @@ function calculateRemainingPoints() {
 }
 
 /**
+ * 翻译切磋奖励类型
+ * @param {string} type 奖励类型（中文）
+ * @returns {string} 翻译后的奖励类型（越南文）
+ */
+function translateReward(type) {
+    const translations = {
+        '武学': 'Võ Học',
+        '声望': 'Danh Vọng',
+        '金钱': 'Tiền',
+        '学识': 'Học Thức',
+        '根骨': 'Căn Cốt',
+        '悟性': 'Ngộ Tính',
+        '心性': 'Tâm Tính',
+        '魅力': 'Mị Lực',
+        '攻击力': 'Tấn Công',
+        '生命值': 'Máu',
+        // 兜底
+        '无': 'Không',
+        'none': 'Không'
+    };
+    return translations[type] || type;
+}
+
+/**
  * 翻译游戏属性和术语
  * @param {string} text 原中文文本
  * @returns {string} 翻译后的越南文文本

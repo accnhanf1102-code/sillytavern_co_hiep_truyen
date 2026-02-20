@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>西域世界地图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', '微软雅黑', sans-serif;
+            overflow: hidden;
+            background: #0a0a0a;
+        }
+
+        .map-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+            overflow: hidden;
+            /* 添加overflow: hidden确保内容不超出 */
+        }
+
+        /* 地图背景 */
+        .map-background {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            /* background-image: url('https://files.catbox.moe/u5pdt5.png'); */
+            background-image: url('https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/世界地图.png');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: brightness(0.8) contrast(1.1) saturate(1);
+            /* 移除box-shadow和border-radius，因为现在是全屏 */
+        }
+
+        /* 地图标记 */
+        .map-marker {
+            position: absolute;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        /* 光标样式 - 白色圆点 */
+        .marker-pin {
+            width: 1vw;
+            height: 1vw;
+            min-width: 8px;
+            min-height: 8px;
+            max-width: 12px;
+            max-height: 12px;
+            background: #ffffff;
+            border: 2px solid #000000;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.6),
+                0 0 20px rgba(255, 255, 255, 0.3),
+                0 2px 4px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .marker-pin::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150%;
+            height: 150%;
+            background: radial-gradient(circle,
+                    rgba(255, 255, 255, 0.2) 0%,
+                    transparent 60%);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(2);
+                opacity: 0;
+            }
+        }
+
+        /* 地名标签 */
+        .marker-label {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 0.5vh;
+            background: rgba(0, 0, 0, 0.85);
+            color: #ffffff;
+            padding: 0.6vh 1.2vw;
+            border-radius: 0.6vh;
+            font-size: clamp(12px, 1.4vw, 15px);
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            font-weight: 500;
+        }
+
+        .map-marker:hover .marker-pin {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9),
+                0 0 30px rgba(255, 255, 255, 0.5),
+                0 2px 6px rgba(0, 0, 0, 0.7);
+        }
+
+        .map-marker:hover .marker-label {
+            background: rgba(0, 0, 0, 0.95);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* 弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            max-width: 600px;
+            height: 70vh;
+            max-height: 500px;
+            border-radius: 1.5vh;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 动态背景图片 */
+        .modal-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 0;
+        }
+
+        /* 毛玻璃遮罩层 */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1;
+        }
+
+        /* 确保内容在遮罩层之上 */
+        .modal-inner {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* 弹窗标题 - 优化样式 */
+        .modal-header {
+            padding: 2.5vh 3vw;
+            text-align: center;
+            background: linear-gradient(180deg,
+                    rgba(0, 0, 0, 0.8) 0%,
+                    rgba(0, 0, 0, 0.4) 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .modal-header h2 {
+            color: #ffffff;
+            font-size: clamp(18px, 2.5vw, 22px);
+            font-weight: 600;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 弹窗上部内容区 */
+        .modal-body {
+            flex: 1;
+            padding: 2.5vh 3vw;
+            overflow-y: auto;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .modal-body p {
+            line-height: 1.8;
+            margin-bottom: 1.5vh;
+            font-size: clamp(13px, 1.8vw, 15px);
+            color: rgba(255, 255, 255, 0.85);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 弹窗底部按钮区 */
+        .modal-footer {
+            height: 20%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2vh;
+        }
+
+        .btn {
+            padding: 1.5vh 4vw;
+            background: #4ECDC4;
+            color: #000000;
+            border: none;
+            border-radius: 0.8vh;
+            font-size: clamp(14px, 2vw, 16px);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+            min-width: 120px;
+        }
+
+        .btn:hover {
+            background: #45B7B8;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.5);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* NPC列表样式 */
+        .npc-list {
+            display: grid;
+            gap: 1.2vh;
+            margin-top: 1.5vh;
+        }
+
+        .npc-item {
+            display: flex;
+            align-items: center;
+            padding: 1.2vh 2vw;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.6vh;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .npc-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(78, 205, 196, 0.5);
+        }
+
+        .npc-checkbox {
+            width: 2vw;
+            height: 2vw;
+            min-width: 16px;
+            min-height: 16px;
+            max-width: 20px;
+            max-height: 20px;
+            margin-right: 2vw;
+            accent-color: #4ECDC4;
+            cursor: pointer;
+        }
+
+        .npc-name {
+            flex: 1;
+            font-size: clamp(13px, 1.8vw, 15px);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* 新增：NPC置灰与提示样式 */
+        .npc-item.disabled {
+            opacity: 0.6;
+        }
+
+        .npc-name.disabled {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .npc-hint {
+            margin-left: 1vw;
+            font-size: clamp(11px, 1.3vw, 13px);
+            color: rgba(255, 255, 255, 0.55);
+        }
+
+        /* 关闭按钮 - 修复z-index问题 */
+        .close-btn {
+            position: absolute;
+            top: 1.5vh;
+            right: 1.5vw;
+            width: 3vw;
+            height: 3vw;
+            min-width: 30px;
+            min-height: 30px;
+            max-width: 36px;
+            max-height: 36px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: clamp(18px, 2.5vw, 24px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .close-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: rotate(90deg);
+        }
+
+        /* 提示文本样式 */
+        .tip-text {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: clamp(12px, 1.6vw, 14px);
+            margin-bottom: 2vh;
+        }
+
+        /* 滚动条美化 */
+        .modal-body::-webkit-scrollbar {
+            width: 0.4vw;
+            min-width: 4px;
+            max-width: 6px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.2vw;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: rgba(78, 205, 196, 0.5);
+            border-radius: 0.2vw;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(78, 205, 196, 0.7);
+        }
+
+        /* 结果展示样式 */
+        .result-message {
+            text-align: center;
+            padding: 4vh 2vw;
+        }
+
+        .result-message h3 {
+            color: #4ECDC4;
+            font-size: clamp(16px, 2.2vw, 20px);
+            margin-bottom: 2vh;
+            font-weight: 600;
+        }
+
+        .result-message p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: clamp(14px, 1.8vw, 16px);
+            line-height: 1.8;
+        }
+
+        /* 危险度信息样式 - 重新设计层次 */
+        .danger-info {
+            margin: 2vh 0;
+            padding: 1.5vh 2vw;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.8vh;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            /* 改为顶部对齐 */
+            margin-bottom: 1.2vh;
+            flex-wrap: wrap;
+        }
+
+        /* 第一层：主标题（最大） */
+        .info-label {
+            font-size: clamp(14px, 2vw, 18px);
+            /* 最大字体 */
+            font-weight: 700;
+            color: #ffffff;
+            /* 纯白色更醒目 */
+            margin-right: 1vw;
+            min-width: fit-content;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 第二层：级别标签（中等） */
+        .danger-level {
+            padding: 0.25vh 0.8vw;
+            border-radius: 0.4vh;
+            font-size: clamp(12px, 1.6vw, 15px);
+            /* 中等字体 */
+            font-weight: 600;
+            margin-right: 0.8vw;
+            align-self: center;
+        }
+
+        /* 第三层：描述文字（最小） */
+        .info-desc {
+            color: rgba(255, 255, 255, 0.65);
+            /* 稍微降低透明度 */
+            font-size: clamp(11px, 1.3vw, 13px);
+            /* 最小字体 */
+            line-height: 1.5;
+            flex: 1;
+            margin-top: 0.2vh;
+            /* 微调垂直对齐 */
+        }
+
+        /* 危险度级别颜色保持不变 */
+        .danger-低 {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+        }
+
+        .danger-较低 {
+            background: rgba(139, 195, 74, 0.3);
+            color: #8BC34A;
+        }
+
+        .danger-中 {
+            background: rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+        }
+
+        .danger-较高 {
+            background: rgba(255, 152, 0, 0.3);
+            color: #FF9800;
+        }
+
+        .danger-高 {
+            background: rgba(244, 67, 54, 0.3);
+            color: #F44336;
+        }
+
+        .friendly-低 {
+            background: rgba(244, 67, 54, 0.3);
+            color: #F44336;
+        }
+
+        .friendly-中 {
+            background: rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+        }
+
+        .friendly-较高 {
+            background: rgba(139, 195, 74, 0.3);
+            color: #8BC34A;
+        }
+
+        .friendly-高 {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+        }
+
+        /* 行动建议部分 */
+        .advice-list {
+            margin-top: 0.8vh;
+            padding-left: 2vw;
+        }
+
+        .advice-item {
+            color: rgba(255, 255, 255, 0.65);
+            /* 与描述文字一致 */
+            font-size: clamp(11px, 1.3vw, 13px);
+            /* 最小字体 */
+            line-height: 1.6;
+            margin-bottom: 0.6vh;
+            position: relative;
+            padding-left: 1.5vw;
+        }
+
+        .advice-item::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: #4ECDC4;
+            font-size: clamp(10px, 1.2vw, 12px);
+        }
+
+        .reputation-warning {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            padding: 1vh 2vw;
+            border-radius: 0.5vh;
+            margin: 1vh 0;
+            text-align: center;
+            color: #F44336;
+        }
+
+        /* 事件标记样式 */
+        .event-indicator {
+            position: absolute;
+            right: 0.5vw;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: clamp(10px, 1.2vw, 14px);
+            font-weight: bold;
+            margin-left: 0.5vw;
+        }
+
+        .event-random {
+            color: #FFD700;
+            /* 金黄色 */
+            text-shadow: 0 0 3px rgba(255, 215, 0, 0.8);
+        }
+
+        .event-battle {
+            color: #FF4444;
+            /* 红色 */
+            text-shadow: 0 0 3px rgba(255, 68, 68, 0.8);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        /* 调整有事件标记时的标签样式 */
+        .marker-label.has-event {
+            padding-right: 2.5vw;
+            /* 为事件标记留出空间 */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* 地图关闭按钮 */
+        .map-close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            z-index: 1001;
+            /* 确保在地图标记之上 */
+            backdrop-filter: blur(5px);
+        }
+
+        .map-close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: rotate(90deg);
+            color: #4ECDC4;
+        }
+
+        .map-close-btn:active {
+            transform: rotate(90deg) scale(0.95);
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 90vw;
+                height: 80vh;
+            }
+
+            .marker-label {
+                /* 原来是 font-size: 11px; padding: 0.5vh 1vw; */
+                font-size: 10px;
+                /* 更小字体 */
+                padding: 2px 6px;
+                /* 更小内边距 */
+                border-radius: 4px;
+                max-width: 30vw;
+                /* 限制最大宽度，减少遮挡 */
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .marker-label.has-event {
+                padding-right: 18px;
+                /* 给事件标记留空间 */
+            }
+
+            .event-indicator {
+                right: 6px;
+                /* 更靠近右侧 */
+                font-size: 10px;
+                /* 缩小“!”大小 */
+            }
+
+            .btn {
+                min-width: 100px;
+                padding: 1.2vh 3vw;
+            }
+
+            /* 危险度信息的手机端优化 */
+            .danger-info {
+                padding: 1vh 3vw;
+                /* 增加左右padding */
+            }
+
+            .info-row {
+                display: block;
+                /* 改为块级显示 */
+                margin-bottom: 1.5vh;
+            }
+
+            /* 移动端三层字体大小 */
+            .info-label {
+                font-size: 14px;
+                /* 标题固定14px */
+                display: block;
+                margin-bottom: 0.5vh;
+            }
+
+            .danger-level {
+                font-size: 12px;
+                /* 级别固定12px */
+                display: inline-block;
+                margin-right: 0.5vw;
+                margin-bottom: 0.3vh;
+            }
+
+            .info-desc {
+                font-size: 11px;
+                /* 描述固定11px */
+                display: block;
+                margin-top: 0.3vh;
+                line-height: 1.4;
+            }
+
+            .advice-list {
+                padding-left: 0;
+            }
+
+            .advice-item {
+                font-size: 11px;
+                /* 建议内容固定11px */
+                padding-left: 2vw;
+            }
+
+            .map-close-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 24px;
+                top: 15px;
+                right: 15px;
+            }
+        }
+
+        /* 针对更小屏幕的优化 */
+        @media (max-width: 480px) {
+            .info-label {
+                font-size: 13px;
+                /* 略微缩小 */
+            }
+
+            .danger-level {
+                font-size: 11px;
+            }
+
+            .info-desc,
+            .advice-item {
+                font-size: 10px;
+                /* 最小可读字体 */
+            }
+
+            .map-close-btn {
+                width: 35px;
+                height: 35px;
+                font-size: 20px;
+                top: 10px;
+                right: 10px;
+            }
+
+            .marker-label {
+                font-size: 9px;
+                /* 超小屏再缩小 */
+                padding: 2px 5px;
+                max-width: 28vw;
+            }
+
+            .marker-label.has-event {
+                padding-right: 16px;
+            }
+
+            .event-indicator {
+                right: 4px;
+                font-size: 9px;
+            }
+        }
+
+        /* 追加：禁用按钮样式 */
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="map-container">
+        <div class="map-background" id="mapBackground"></div>
+        <!-- 关闭按钮 -->
+        <button class="map-close-btn" onclick="exitMap()">×</button>
+    </div>
+
+    <!-- 弹窗 -->
+    <div class="modal" id="locationModal">
+        <div class="modal-content">
+            <div class="modal-bg" id="modalBg"></div>
+            <div class="modal-overlay"></div>
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <div class="modal-inner">
+                <div class="modal-body" id="modalBody"></div>
+                <div class="modal-footer" id="modalFooter">
+                    <button class="btn" id="actionBtn" onclick="showNPCList()">出行</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== Dữ liệu thông tin mức độ nguy hiểm ========== [[12]]
+        const locationDangerInfo = {
+            '伊州': {
+                danger: { level: '中', desc: 'Các thế lực hỗn tạp, dòng chảy ngầm cuộn trào, mật thám Đảng Hạng và tai mắt Lữ thị ẩn nấp, cần luôn cảnh giác' },
+                friendly: { level: '较高', desc: 'Phái Thiên Sơn có cứ điểm bí mật trong thành, cùng chung mối thù với dân quân Hán tộc đồn trú tại địa phương, thường có sự hợp tác' },
+                advice: ['Có thể giả làm thương nhân hoặc du hiệp giang hồ, không cần cố ý che giấu thân phận nhưng cũng đừng phô trương', 'Có thể đeo binh khí bình thường, nhưng hãy hành sự khiêm tốn', 'Ưu tiên trọ tại Đồng Phúc Khách Sạn, dùng ám hiệu liên lạc với người của mình']
+            },
+            '千佛洞': {
+                danger: { level: '低', desc: 'Các thế lực đều tôn trọng chốn cửa Phật thanh tịnh, võ tăng hộ pháp duy trì trật tự, tương đối an toàn' },
+                friendly: { level: '较高', desc: 'Cửa Phật từ bi hỉ xả, cao tăng âm thầm cứu giúp người gặp nạn,理念 tương hợp với phái Thiên Sơn, có thể được che chở và chữa trị' },
+                advice: ['Có thể dùng thân phận thật để đến, nhưng không cần cố ý tiết lộ thân phận phái Thiên Sơn', 'Vào chùa phải giải binh khí, khuyên nên tuân thủ nghiêm ngặt quy củ trong chùa, nhưng trong chùa rất an toàn', 'Có thể trọ tại nơi ở của khách hành hương, thỉnh giáo y thuật từ cao tăng hoặc tìm kiếm sự giúp đỡ']
+            },
+            '博斯坦村': {
+                danger: { level: '低', desc: 'Vị trí hẻo lánh xa rời xung đột chính, dân làng chất phác thân thiện, là nơi lánh đời lý tưởng' },
+                friendly: { level: '较高', desc: 'Làng chài yên bình chào đón mọi người, trà lầu là nơi trao đổi thông tin tốt, không có ác ý với phái Thiên Sơn' },
+                advice: ['Có thể dùng thân phận thật, cũng có thể giả làm du hiệp thương nhân để tiện thăm dò tin tức', 'Có thể đeo binh khí bình thường, dân phong nơi này không cấm', 'Có thể đến trà lầu và chợ để thu thập tình báo các phương']
+            },
+            '博格达峰': {
+                danger: { level: '高', desc: 'Giá rét thiếu oxy, tuyết lở thường xuyên, khe nứt sông băng chằng chịt, thời tiết cực đoan thay đổi thất thường, môi trường tự nhiên cực kỳ khắc nghiệt' },
+                friendly: { level: '中', desc: 'Môi trường tự nhiên không người, không tồn tại sự thiện chí hay thù địch của con người, chỉ là thử thách thuần túy của tự nhiên' },
+                advice: ['Phải chuẩn bị đầy đủ quần áo chống rét và dụng cụ leo núi', 'Khuyên nên đi cùng bạn đồng hành để hỗ trợ lẫn nhau', 'Khuyên nên thuê người dẫn đường địa phương thông thạo địa hình, tuyệt đối không được mạo hiểm đi sâu vào']
+            },
+            '哈密绿洲': {
+                danger: { level: '较低', desc: 'Thành phố thương mại tương đối hòa bình, tuy có các thế lực nhưng nhìn chung ổn định, không khí buôn bán tấp nập' },
+                friendly: { level: '较高', desc: 'Là trạm tiếp tế quan trọng của Tây Vực thương nghiệp phát triển, tương đối bao dung với các nhân sĩ các lộ, phái Thiên Sơn có thể hoạt động bình thường' },
+                advice: ['Có thể hoạt động với thân phận thương nhân hoặc du hiệp, không cần cố ý che giấu', 'Có thể đeo binh khí bình thường, phù hợp với hình tượng nhân sĩ giang hồ', 'Thích hợp mua sắm vật tư tiếp tế và thu thập tình báo']
+            },
+            '大沙海': {
+                danger: { level: '高', desc: 'Môi trường tự nhiên cực kỳ khắc nghiệt, bão cát chí mạng, cát chảy khắp nơi, thiếu nước thiếu lương thực, lạc đường là cửu tử nhất sinh' },
+                friendly: { level: '低', desc: 'Vùng đất chết hoang vu không người, không có tiếp tế và viện trợ, chỉ có xương trắng và cạm bẫy tử vong' },
+                advice: ['Phải kết bạn đồng hành', 'Thuê người dẫn đường sa mạc giàu kinh nghiệm là chìa khóa sinh tử', 'Chuẩn bị đủ nước, lương thực và dụng cụ định hướng, hành trang gọn nhẹ']
+            },
+            '天山派外堡': {
+                danger: { level: '低', desc: 'Lãnh địa của phái Thiên Sơn, có tháp canh bảo vệ, mối đe dọa Đảng Hạng tuy vẫn còn nhưng phòng ngự hoàn thiện' },
+                friendly: { level: '高', desc: 'Đây là nơi trú ẩn phái Thiên Sơn lập ra cho người tị nạn, đồng môn sư huynh đệ bảo vệ, tuyệt đối an toàn đáng tin cậy' },
+                advice: ['Có thể công khai thân phận phái Thiên Sơn, thậm chí mặc trang phục môn phái', 'Đeo binh khí bình thường, hỗ trợ phòng thủ và duy trì trật tự']
+            },
+            '崆峒派': {
+                danger: { level: '低', desc: 'Môn phái hữu hảo cung cấp sự che chở, Cửu Cung Mê Trận bảo vệ nghiêm ngặt, là bến đỗ tuyệt đối an toàn' },
+                friendly: { level: '高', desc: 'Hai phái giao tình thâm hậu thường xuyên giao lưu, đệ tử bốn môn đối đãi thân thiện, có thể nhận được sự hỗ trợ viện trợ' },
+                advice: ['Có thể công khai thân phận phái Thiên Sơn để thăm hỏi giao lưu', 'Bất kỳ quy mô đội ngũ nào cũng được hoan nghênh', 'Đeo binh khí bình thường, có thể tham gia tỷ thí giao lưu']
+            },
+            '拜火教总坛': {
+                danger: { level: '高', desc: 'Tổng bộ tà giáo cơ quan trùng trùng, hang động dưới lòng đất dung nham khắp nơi, giáo đồ cuồng tín coi chính đạo là tử địch' },
+                friendly: { level: '低', desc: 'Thế lực tà giáo hoàn toàn đối lập với lý niệm chính đạo của phái Thiên Sơn, nhất định muốn diệt trừ cho nhanh' },
+                advice: ['Cực kỳ nguy hiểm, không khuyên mạo hiểm lẻn vào', 'Nếu bắt buộc phải đi cần có kế hoạch chu đáo và nội ứng', 'Phải hoàn toàn che giấu thân phận, chuẩn bị trang bị chống lửa cách nhiệt']
+            },
+            '昆仑派': {
+                danger: { level: '低', desc: 'Đệ nhất đại phái Tây Vực uy nghiêm nhưng bao dung, lý niệm tương hợp với phái Thiên Sơn như cành liền khí, cung cấp sự che chở' },
+                friendly: { level: '高', desc: 'Quan hệ hữu hảo với phái Thiên Sơn lập trường nhất quán, chưởng môn công chính vô tư, có thể nhận được y tế, võ học và các viện trợ khác' },
+                advice: ['Có thể công khai thân phận phái Thiên Sơn để bái phỏng, được tiếp đãi lễ độ', 'Đeo binh khí bình thường, có thể tham gia tỷ thí giao lưu', 'Có thể trao đổi võ học, tìm kiếm hòa giải, tìm thầy thuốc men, v.v.']
+            },
+            '月牙泉': {
+                danger: { level: '低', desc: 'Vùng đất trung lập tuyệt đối duy nhất ở Tây Vực, vùng an toàn nghiêm cấm động võ, các thế lực ngầm hiểu tuân thủ quy tắc' },
+                friendly: { level: '高', desc: 'Không hỏi lai lịch không kết ân oán, trà quán cung cấp dịch vụ che chở, chữa trị, truyền tin, là bến đỗ thực sự' },
+                advice: ['Có thể dùng thân phận thật để đến, nơi này không hỏi lai lịch', 'Vào trà quán cần giải binh khí nhưng tuyệt đối an toàn', 'Có thể nghỉ ngơi chữa trị, thăm dò tình báo thậm chí đàm phán với cừu địch tại đây']
+            },
+            '沙州': {
+                danger: { level: '高', desc: 'Ngụy quân Lữ thị chiếm giữ, quân Tây Hạ thèm khát dòm ngó, mật thám khắp nơi, tố giác thành phong trào, lộ thân phận là chết chắc' },
+                friendly: { level: '低', desc: 'Bị thế thù Lữ thị chiếm cứ dân chúng lầm than, tuy có trạm gác ngầm của Thiên Sơn nhưng phải cực kỳ ẩn mình mới có thể hoạt động' },
+                advice: ['Phải cải trang thành thương nhân hoặc thường dân, tuyệt đối không được lộ thân phận', 'Khuyên đi ít người, tránh hành động quy mô lớn', 'Dựa vào trạm gác ngầm của Thiên Sơn hoạt động bí mật, tránh xa phủ nha Lữ thị']
+            },
+            '瓜州': {
+                danger: { level: '高', desc: 'Đại bản doanh Cầm Sinh Quân Tây Hạ, chuyên bắt bớ dân Hán, hàng vạn tinh nhuệ Đảng Hạng hổ đói rình mồi' },
+                friendly: { level: '低', desc: 'Địa ngục trần gian, dân Hán như cừu đợi làm thịt, đệ tử phái Thiên Sơn ở đây như dê vào miệng cọp, cửu tử nhất sinh' },
+                advice: ['Cực kỳ nguy hiểm không khuyên đến, nếu bắt buộc thì cần kế hoạch chu đáo', 'Phải hoàn toàn thay đổi thân phận dung mạo, chuẩn bị nhiều lớp vỏ bọc', 'Khuyên nên thu thập tình báo trước tìm kiếm nội ứng, tuyệt đối không được hành động thiếu suy nghĩ']
+            },
+            '白驼山': {
+                danger: { level: '较高', desc: 'Thế gia buôn nô lệ phòng thủ nghiêm ngặt, ba trăm tử sĩ, côn trùng độc thú dữ khắp nơi, có nhiều xung đột với phái Thiên Sơn' },
+                friendly: { level: '低', desc: 'Chuyên buôn bán người Hán làm nô lệ, hoàn toàn đối lập với lý niệm cứu khổ cứu nạn của phái Thiên Sơn' },
+                advice: ['Phải cải trang thành thương nhân hoặc người mua, tuyệt đối không được lộ thân phận phái Thiên Sơn', 'Khuyên đi cùng bạn đồng hành, cần có người dẫn đường thông thạo địa hình', 'Binh khí cần mang theo kín đáo, chuẩn bị thuốc giải độc đề phòng côn trùng độc', 'Khuyên mang đủ vàng bạc châu báu, dù gặp nguy hiểm cũng có thể dùng tiền tài bảo mạng']
+            },
+            '迪坎儿村': {
+                danger: { level: '较低', desc: 'Ngôi làng cực kỳ nghèo khó không có mối đe dọa, cần đề phòng bệnh truyền nhiễm, môi trường khắc nghiệt nhưng lòng người không xấu' },
+                friendly: { level: '高', desc: 'Phái Thiên Sơn sẽ âm thầm tiếp tế dân làng nghèo khó, dân làng cảm kích ơn đức này' },
+                advice: ['Có thể dùng thân phận thật để đến, thậm chí có thể mặc trang phục phái Thiên Sơn để được tin tưởng', 'Mang theo lương thực thuốc men tiếp tế dân làng, không cần lúc nào cũng đeo binh khí']
+            },
+            '高昌': {
+                danger: { level: '较低', desc: 'Thánh thành văn hóa các bên không dám tùy tiện phá hoại, không khí tôn giáo bao dung có lợi cho hoạt động, tương đối hòa bình ổn định' },
+                friendly: { level: '中', desc: 'Vương đình Hồi Hốt tương đối khai minh, giữ thái độ trung lập với các thế lực, nhưng vẫn cần cẩn trọng' },
+                advice: ['Có thể giả làm học giả hoặc thương nhân, lợi dụng giao lưu văn hóa làm vỏ bọc', 'Có thể đeo binh khí bình thường nhưng đừng phô trương, tránh gây chuyện thị phi']
+            },
+            '龟兹': {
+                danger: { level: '较低', desc: 'Thành chủ âm thầm ủng hộ phái Thiên Sơn, khu người Hán tụ cư là đồng minh tự nhiên, tương đối độc lập tự trị khá an toàn' },
+                friendly: { level: '高', desc: 'Thành chủ là hậu duệ tướng Hán, lý niệm tương hợp, trong thành có dịch quán cung cấp sự che chở, phố cổ phong cách Hán cũng có nhiều người ủng hộ' },
+                advice: ['Có thể dùng thân phận thật nhưng ở nơi công cộng vẫn cần khiêm tốn', 'Có thể đeo binh khí bình thường', 'Ưu tiên liên hệ dịch quán và những người ủng hộ ở phố cổ phong cách Hán']
+            }
+        };
+
+        // ========== Hệ thống sự kiện ==========
+        // Biến đánh dấu sự kiện
+        let randomEvent = 0;  // Đánh dấu sự kiện ngẫu nhiên
+        let battleEvent = 0;   // Đánh dấu sự kiện chiến đấu
+
+        // Lưu trạng thái sự kiện của mỗi địa điểm
+        let locationEvents = {};
+
+        // Lấy phạm vi xác suất sự kiện chiến đấu dựa trên độ nguy hiểm
+        function getBattleEventChance(dangerLevel) {
+            switch (dangerLevel) {
+                case '低': return 0;      // 0-5%
+                case '较低': return 5;    // 0-8%
+                case '中': return 10;     // 0-12%
+                case '较高': return 15;   // 0-16%
+                case '高': return 25;     // 0-20%
+                default: return 10;       // Mặc định 10%
+            }
+        }
+
+        // Tạo sự kiện cho địa điểm
+        function generateLocationEvents() {
+            locationEvents = {};
+
+            for (const [locationName, locationInfo] of Object.entries(locationDatabase)) {
+                const events = {
+                    hasRandomEvent: false,
+                    hasBattleEvent: false
+                };
+
+                // Sử dụng một số ngẫu nhiên quyết định loại sự kiện
+                const eventRoll = Math.random() * 100;
+
+                // Phán đoán sự kiện chiến đấu trước (độ ưu tiên cao hơn)
+                const dangerInfo = locationDangerInfo[locationName];
+                if (dangerInfo) {
+                    const battleChance = getBattleEventChance(dangerInfo.danger.level);
+
+                    if (eventRoll < battleChance) {
+                        events.hasBattleEvent = true;
+                    } else if (eventRoll < battleChance + 10) {
+                        // Khi sự kiện chiến đấu không kích hoạt, phán đoán sự kiện ngẫu nhiên
+                        events.hasRandomEvent = true;
+                    }
+                } else {
+                    // Địa điểm không có thông tin độ nguy hiểm, chỉ phán đoán sự kiện ngẫu nhiên
+                    if (eventRoll < 10) {
+                        events.hasRandomEvent = true;
+                    }
+                }
+
+                locationEvents[locationName] = events;
+            }
+        }
+
+        // ========== Hệ thống danh vọng và độ hảo cảm ==========
+        // Giá trị danh vọng nhân vật chính (phạm vi 0-300)
+        let playerReputation = 50;
+
+        // Ngưỡng danh vọng địa điểm (thấp hơn giá trị này không thể đến)
+        const locationReputationThreshold = {
+            '天山派外堡': 0,
+            '博格达峰': 200,
+            '伊州': 10,
+            '哈密绿洲': 30,
+            '高昌': 90,
+            '迪坎儿村': 20,
+            '大沙海': 100,
+            '博斯坦村': 20,
+            '沙州': 110,
+            '瓜州': 130,
+            '龟兹': 80,
+            '崆峒派': 60,
+            '昆仑派': 70,
+            '拜火教总坛': 150,
+            '白驼山': 120,
+            '月牙泉': 40,
+            '千佛洞': 50
+        };
+
+        // Ngưỡng độ hảo cảm NPC cần thiết
+        const npcFavorThreshold = {
+            '洞庭君': 999,
+            '钱塘君': 0,
+            '萧白瑚': 999,
+            '姬姒': 10,
+            '破阵子': 999,
+            '呼延显': 999,
+            '施延年': 999,
+            '雨烛': 30,
+            '安慕': 999,
+            '唐沐梨': 999,
+            '洛潜幽': 999,
+            '玄天青': 999,
+            '鹿椿若': 999,
+            '苓雪妃': 30
+        };
+
+        // Độ hảo cảm hiện tại của NPC
+        let npcCurrentFavor = {
+            '洞庭君': 30,
+            '钱塘君': 40,
+            '萧白瑚': 25,
+            '姬姒': 20,
+            '破阵子': 35,
+            '呼延显': 30,
+            '施延年': 50,
+            '雨烛': 60,
+            '安慕': 45,
+            '唐沐梨': 15,
+            '洛潜幽': 10,
+            '玄天青': 10,
+            '鹿椿若': 10,
+            '苓雪妃': 10
+        };
+
+        // 根据声望获取最大可邀请NPC数量
+        function getMaxNPCCount() {
+            if (playerReputation >= 100) return 2;
+            return 1;
+        }
+        // ========== Quản lý dữ liệu địa điểm thống nhất ==========
+        // Tất cả thông tin địa điểm tập trung ở đây, thuận tiện chỉnh sửa và quản lý
+        const locationDatabase = {
+            '天山派外堡': {
+                displayName: 'Ngoại Bảo Thiên Sơn',
+                position: { top: '17%', left: '57%' },
+                description: 'Đi qua hẻm núi bí ẩn uốn lượn mười dặm, trước mắt bỗng nhiên mở ra một vùng bồn địa giữa núi. Nơi đây tụ họp hàng ngàn di dân Hán Đường và người tị nạn các tộc, họ hoặc vì chiến loạn lưu ly, hoặc vì bạo chính bức bách, lần lượt đến nương nhờ phái Thiên Sơn tìm sự che chở. Trong bồn địa ruộng tốt ngàn mẫu, kênh nước bao quanh, trên chợ tiếng rao hàng của thương nhân không dứt, tựa như một chốn thế ngoại đào nguyên. Đệ tử Thiên Sơn ngày đêm tuần phòng không dám lơ là, thề chết bảo vệ mảnh đất tịnh độ này. Ngoại bảo không chỉ là bến đỗ của người tị nạn, mà còn là tiền đồn liên lạc với bên ngoài của phái Thiên Sơn.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/天山派外堡/昼/集市.jpg'
+            },
+            '博格达峰': {
+                displayName: 'Đỉnh Bogda',
+                position: { top: '13%', left: '80%' },
+                description: 'Đỉnh cao nhất phía đông Thiên Sơn, núi cao hơn ngàn trượng, quanh năm tuyết phủ đỉnh. Bogda trong tiếng Tây Vực có nghĩa là "Thần Linh", các tộc địa phương đều coi là thánh sơn. Đỉnh núi quanh năm mây mù bao phủ, truyền thuyết người leo lên đỉnh có thể đạt được thiên nhân cảm ứng. Giữa các ngọn núi có nhiều vách đá sông băng, địa thế hiểm trở, nhưng cũng có suối nước nóng u cốc cùng các loài kỳ trân dị thú, do đó trở thành nơi lánh đời tuyệt hảo. Đêm trăng tròn, trên đỉnh núi sẽ có kiếm khí xung thiên, nghi là kiếm ý của cao nhân tiền bối để lại.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/博格达峰/昼/冰川.jpg'
+            },
+            '伊州': {
+                displayName: 'Y Châu',
+                position: { top: '28%', left: '60%' },
+                description: 'Tên cổ là Y Ngô, trấn giữ yết hầu dẫn vào Trung Nguyên, lịch sử là nơi binh gia tranh giành. Thành trì kiên cố, có hai lớp tường thành trong ngoài, lầu thành cao vút. Ngày nay thế lực trong thành chằng chịt, bề ngoài do Cao Xương Hồi Hốt khống chế, thực chất các bên ngầm đấu đá, phái Thiên Sơn có đặt cứ điểm tại đây. Là trọng trấn con đường tơ lụa, trong thành người Hồ kẻ Hán ở lẫn lộn, chùa tháp san sát, mỗi ngày đều có hàng trăm đoàn lạc đà ra vào. Tuy ở loạn thế, thương nghiệp vẫn phồn thịnh, rượu nho Tây Vực, tơ lụa gốm sứ Trung Nguyên đều tụ hội về đây.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/伊州/昼/街道.jpg'
+            },
+            '哈密绿洲': {
+                displayName: 'Ốc Đảo Hami',
+                position: { top: '40%', left: '80%' },
+                description: 'Viên minh châu sa mạc được nước tuyết Thiên Sơn nuôi dưỡng, phạm vi trăm dặm đều là ruộng đồng xanh tốt. Nơi đây không chỉ là quê hương của dưa quả, mà còn là vùng sản xuất lương thực quan trọng nhất Tây Vực. Trung tâm ốc đảo có bảy mắt suối, quanh năm không cạn, hệ thống tưới tiêu chằng chịt như huyết mạch nuôi dưỡng đại địa. Ngoài dưa Hami nổi tiếng, còn sản xuất nhiều lúa mì, nho, mơ. Trên ốc đảo rải rác hơn hai mươi thôn xóm lớn nhỏ, cư dân đa số là nông hộ canh tác nhiều đời. Mỗi mùa thu hoạch, trên đồng ruộng đâu đâu cũng là bóng người bận rộn, tiếng cười nói không dứt. Tuy nhiên vùng đất trù phú này cũng rước lấy sự dòm ngó, các thế lực đều muốn khống chế vựa lương thực này. Dân làng tổ chức đội tự vệ, nhưng đối mặt quân chính quy vẫn lực bất tòng tâm. Phái Thiên Sơn thường ngầm phái người bảo vệ vụ thu hoạch, quan hệ mật thiết với nông dân địa phương.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/哈密绿洲/昼/村落.jpg'
+            },
+            '高昌': {
+                displayName: 'Cao Xương',
+                position: { top: '10%', left: '23%' },
+                description: 'Kinh đô nước Cao Xương, cũng là nơi Hồi Hốt Vương Đình tọa lạc. Thánh địa Phật quốc ngàn năm, trong thành chùa chiền san sát, có hơn bốn mươi ngôi chùa lớn nhỏ, tiếng chuông sớm trống chiều không dứt. Nổi tiếng nhất là chùa Bắc Đình Cao Xương, có tượng Phật khắc đá cao vài tầng lầu, bảo tướng uy nghi khiến người ta chấn động. Là điểm giao thoa văn hóa con đường tơ lụa, trong thành bảo tồn lượng lớn bích họa, kinh quyển và bia khắc, ghi lại lịch sử giao lưu văn minh Đông Tây. Trong thành còn có giảng kinh đường, dịch kinh viện và các cơ cấu văn hóa khác, học giả các nước vân tập về đây nghiên cứu Phật pháp. Giữa các con phố đâu đâu cũng thấy tăng lữ khoác cà sa, cũng có đạo sĩ, giáo đồ Mani giáo và các nhân sĩ tôn giáo khác. Không khí tôn giáo bao dung này khiến Cao Xương trở thành nơi tị nạn tinh thần. Những năm gần đây tuy có chiến loạn, nhưng các bên đều không dám tùy tiện phá hoại thánh thành văn hóa này',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/高昌/昼/街道.jpg'
+            },
+            '迪坎儿村': {
+                displayName: 'Thôn Dikan\'er',
+                position: { top: '15%', left: '33%' },
+                description: 'Ngôi làng điêu tàn phía đông nam Cao Xương, dân làng tự xưng là hậu duệ Lâu Lan, đời đời bảo vệ bí mật dẫn đến di chỉ Lâu Lan. Chiến loạn khiến ngôi làng vốn đã nghèo nàn này càng thêm thê thảm, trai tráng không bị bắt đi lính thì cũng bỏ trốn nơi khác, chỉ còn già yếu phụ nữ trẻ em khổ sở giữ nhà. Trong làng mười nhà chín trống, tường xiêu vách đổ khắp nơi. Ban ngày dân làng nơm nớp lo sợ, ban đêm càng cửa đóng then cài, sợ Cầm Sinh Quân tập kích. Để sống sót, họ buộc phải bán bản đồ giả cho các lộ tầm bảo, dùng lời nói dối đổi lấy chút lương thực. Cây hồ dương ngàn năm đầu làng đã chết khô từ lâu, giống như vận mệnh ngôi làng này. Các cụ già vẫn cố chấp truyền vãn bài cổ ca Lâu Lan, giọng khàn khàn tuyệt vọng. Lũ trẻ mặt mũi vàng vọt, nhưng trong mắt vẫn còn tia khát vọng về tương lai. Phái Thiên Sơn thỉnh thoảng sẽ ngầm tiếp tế, nhưng cũng chỉ là muối bỏ bể.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/迪坎儿村/昼/村落.jpg'
+            },
+            '大沙海': {
+                displayName: 'Đại Sa Hải',
+                position: { top: '30%', left: '40%' },
+                description: 'Biển cát mênh mông kéo dài ngàn dặm đông tây, rộng bốn trăm dặm nam bắc, cồn cát như núi, di chuyển theo gió, cột mốc hôm qua hôm nay đã bị cát vàng nuốt chửng. Thương đội buộc phải men theo rìa ốc đảo cẩn thận tiến lên, kẻ đi thẳng qua cửu tử nhất sinh. Sâu trong sa mạc nghe nói chôn giấu nhiều di chỉ cổ quốc, dẫn dụ vô số kẻ tìm kho báu bỏ mạng biển cát. Mỗi khi bão cát đến, trời đất tối sầm như ngày tận thế, ngay cả người dẫn đường giàu kinh nghiệm nhất cũng sẽ lạc phương hướng.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/大沙海/昼/沙漠.jpg'
+            },
+            '博斯坦村': {
+                displayName: 'Thôn Boston',
+                position: { top: '35%', left: '68%' },
+                description: 'Làng chài yên bình bên hồ Bosten, trong tiếng Đột Quyết ý là "vườn hoa ốc đảo". Làng dựa núi kề sông, phong cảnh như tranh. Hồ Bosten là hồ nước ngọt lớn nhất Tây Vực, trong hồ sản xuất nhiều loại cá, dân làng đời đời sống bằng nghề đánh cá. Mùa xuân lau sậy xanh xanh, ngày hè hoa sen nở rộ, mùa thu ngư ca hát chiều, ngày đông đóng băng như gương. Do vị trí hẻo lánh, nơi đây trở thành chốn lánh đời của nhiều nhân sĩ giang hồ. Quán trà tiệm rượu trong làng, càng là nơi tập trung tin tức các lộ.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/博斯坦村/昼/村落.jpg'
+            },
+            '沙州': {
+                displayName: 'Sa Châu',
+                position: { top: '74%', left: '65%' },
+                description: 'Kinh đô vinh quang của Quy Nghĩa Quân ngày xưa, nay luân lạc thành sào huyệt tội ác của ngụy quân Lữ thị. Hơn một trăm năm trước, dân tộc anh hùng Trương Nghị Triều khởi binh tại đây, xua đuổi Thổ Phồn thu phục Hà Tây, lập chính quyền Quy Nghĩa Quân, che chở dân Hán trăm năm. Nay kẻ soán quyền Lữ thị chiếm cứ thành này, đối ngoại khúm núm dựa dẫm Đảng Hạng, đối nội vơ vét tàn bạo cá thịt bá tánh. Chợ búa vốn phồn hoa trong thành nay tiêu điều vắng vẻ, bá tánh mặt mày xanh xao không dám lên tiếng. Lữ thị để lấy lòng Tây Hạ, thường đem nữ tử nhà Hán làm cống phẩm đưa đi. Phái Thiên Sơn ngầm đặt điểm liên lạc trong thành, chờ thời cơ quang phục cố thổ.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/沙洲/昼/街道.jpg'
+            },
+            '瓜州': {
+                displayName: 'Qua Châu',
+                position: { top: '68%', left: '80%' },
+                description: 'Địa ngục trần gian dưới gót sắt Tây Hạ, đầu cầu Đảng Hạng tiến về phía tây. Vốn là trọng trấn Hà Tây, nay thành đại doanh Cầm Sinh Quân. Trong ngoài thành đóng trại mấy vạn tinh nhuệ Đảng Hạng, hổ đói rình mồi dòm ngó Tây Vực. Thống lĩnh Cầm Sinh Quân đóng trấn tại đây, chuyên việc cướp bóc dân Hán làm nô lệ. Mỗi ngày đều có xe tù lồng sắt ra vào cổng thành, giam giữ người Hán như cừu đợi làm thịt. Trong thành thiết lập chợ nô lệ, con cái nhà Hán bị định giá công khai, cảnh tượng thê thảm không nỡ nhìn. Dân Hán vốn có mười không còn một, hơi có phản kháng liền bị chém đầu thị chúng, đầu người treo cổng thành qua tháng không rữa. Đêm khuya, trong thành thường truyền ra tiếng khóc than xé ruột xé gan.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/瓜州/昼/军营.jpg'
+            },
+            '龟兹': {
+                displayName: 'Quy Tư',
+                position: { top: '25%', left: '10%' },
+                description: 'Vốn là đứng đầu An Tây Tứ Trấn, nay tuy không còn cảnh tượng phồn thịnh thời Đại Đường, vẫn là trung tâm chế tạo đồ sắt Tây Vực. Trong thành xưởng thợ rèn rải rác như sao, tiếng đánh sắt ngày đêm không dứt, binh khí thép ròng sản xuất ra bán xa các nơi. Trên danh nghĩa xưng thần nạp cống với Cao Xương Hồi Hốt, thực chất giữ độc lập tự trị. Thành chủ là hậu duệ tướng Hán triều trước, âm thầm ủng hộ phái Thiên Sơn chống lại Đảng Hạng, hai bên thông qua kênh bí mật giữ liên lạc. Cư dân Hán Hồ ở lẫn, ai nấy an cư lạc nghiệp. Quặng mỏ thượng đẳng quanh thành, là tài nguyên các thế lực đều muốn nhúng chàm. Thành phố của sắt và lửa này, trong loạn thế kiên cường bảo vệ tôn nghiêm cuối cùng.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/龟兹/昼/街道.jpg'
+            },
+            '崆峒派': {
+                displayName: 'Phái Không Động',
+                position: { top: '60%', left: '93%' },
+                description: 'Đại phái ngàn năm trên núi Không Động danh tiếng của Đạo gia, xưng hùng Tây Vực bằng thuật Kỳ Môn Độn Giáp. Thế núi hiểm trở, có tổng cộng Cửu Cung Bát Quái bảy mươi hai ngọn núi, ngầm hợp huyền lý Đạo gia. Chưởng phái tinh thông âm dương ngũ hành, có thể tính toán thiên cơ, trong núi đầy rẫy cơ quan trận pháp, người ngoài nếu không có dẫn đường, cực dễ lạc lối trong đó. Phái Không Động tuy là môn phái Đạo gia, lại không lánh đời ở ẩn, trái lại tích cực tham gia sự vụ giang hồ. Quan hệ hữu hảo với phái Thiên Sơn, thường xuyên cử đệ tử giao lưu võ học.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/崆峒派/昼/武侠门派.jpg'
+            },
+            '昆仑派': {
+                displayName: 'Phái Côn Luân',
+                position: { top: '55%', left: '40%' },
+                description: 'Đệ nhất đại phái Tây Vực hùng cứ dãy núi Côn Luân, phong thái nghiêm cẩn, quy củ sâm nghiêm, võ học bác đại tinh thâm, đặc biệt nổi tiếng về kiếm pháp. Chưởng môn đương nhiệm đức cao vọng trọng, nói một lời cửu đỉnh tại võ lâm Tây Vực, thường xuyên điều giải phân tranh các phái. Cổng núi nguy nga tráng lệ, điện các xây dựa núi tầng tầng lớp lớp thẳng vào mây xanh. Trong phái thu đồ đệ không hỏi xuất thân, nên dưới trướng có cả người Hán, cũng có đệ tử các tộc Hồi Hốt, Thổ Phồn. Cùng phái Thiên Sơn như cành liền khí, lập trường nhất quán trong việc chống lại tà phái và ngoại địch xâm lấn.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/昆仑派/昼/武侠门派.jpg'
+            },
+            '拜火教总坛': {
+                displayName: 'Tổng Đàn Bái Hỏa Giáo',
+                position: { top: '35%', left: '30%' },
+                description: 'Tổng bộ tà giáo ẩn nấp nơi sâu nhất Hỏa Diệm Sơn, suốt ngày lửa cháy hừng hực, sóng nhiệt cuồn cuộn. Bái Hỏa Giáo bắt nguồn từ Ba Tư, sau khi truyền vào Tây Vực dần biến chất thành tà giáo. Giáo đồ cuồng nhiệt sùng bái ngọn lửa, cho rằng lửa có thể thanh tẩy tất cả. Tổng đàn xây trong hang động dung nham dưới lòng đất, lấy nham thạch làm hồ, lấy liệt hỏa làm tường, người thường căn bản không thể đến gần. Trong giáo đẳng cấp sâm nghiêm, thông qua thử luyện ngọn lửa tàn khốc để tuyển chọn giáo đồ. Bọn họ thường xuyên cướp bóc thôn trang, cưỡng ép dân làng nhập giáo, không theo thường bị ném vào trong lửa. Đối lập tự nhiên với các môn phái chính thống võ lâm Trung Nguyên như Côn Luân, Không Động, Thiên Sơn.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/拜火教总坛/昼/邪教祭坛.jpg'
+            },
+            '白驼山': {
+                displayName: 'Bạch Đà Sơn',
+                position: { top: '69%', left: '17%' },
+                description: 'Sào huyệt thế gia buôn nô lệ chiếm cứ Tây Vực trăm năm, đời đời kinh doanh mua bán nhân khẩu. Sơn trang xây trên ngọn núi hiểm trở, dưới là vực sâu, chỉ có một con đường hẹp có thể lên. Trong trang nuôi dưỡng các loại côn trùng độc thú dữ, còn có tử sĩ các nước Tây Vực huấn luyện bảo vệ. Bạch Đà Sơn và quý tộc Đảng Hạng đều có cấu kết, hình thành mạng lưới buôn nô lệ khắp Tây Vực. Bọn họ chuyên chọn lữ khách lẻ loi, nông hộ phá sản để ra tay, nam làm nô công, nữ vào giáo phường, đồng tử thì bán sang Tây Hạ đi lính. Trong ngục tối của trang giam giữ hàng trăm nô lệ, tiếng ai oán ngày đêm không dứt.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/白驼山/昼/武侠门派.jpg'
+            },
+            '月牙泉': {
+                displayName: 'Nguyệt Nha Tuyền',
+                position: { top: '79%', left: '57%' },
+                description: 'Dòng suối trong vắt trong lòng núi Minh Sa, vì hình dáng như trăng lưỡi liềm mà thành tên. Nước suối trong veo ngọt lành, ngàn năm không cạn không tràn, được xưng là đệ nhất tuyền sa mạc. Nơi đây là trạm tiếp tế quan trọng của thương đội con đường tơ lụa, cũng là nơi nhân sĩ giang hồ thường xuyên tụ hội. Bên suối có vài khách sạn quán trà, là vùng đất trung lập duy nhất ở Tây Vực, các thế lực đạt thành ngầm hiểu —— ai cũng không thể động võ bên suối. Mọi người trong chiến loạn đến đây tạm được nghỉ ngơi, cừu địch có thể cùng bàn uống trà, kẻ vong mạng có thể ngủ yên một giấc. Nước suối thanh liệt ngọt lành, truyền thuyết có thể rửa sạch sát nghiệp. Đêm khuya, thường có người đối diện Nguyệt Tuyền cầu nguyện, cầu mong loạn thế này sớm ngày kết thúc. Cũng có nhi nữ giang hồ định tình tại đây, bởi vì ai cũng không biết ngày mai liệu còn có thể gặp lại. Sự yên bình nhỏ nhoi này, là ánh nến cuối cùng trong bóng tối.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/月牙泉/昼/绿洲.jpg'
+            },
+            '千佛洞': {
+                displayName: 'Thiên Phật Động',
+                position: { top: '70%', left: '53%' },
+                description: 'Tên thường gọi của Hang Mạc Cao, khai quật vào thời Tiền Tần, trải qua hơn mười triều đại mở rộng, hiện có hơn bảy trăm hang động. Bích họa trong động tinh mỹ tuyệt luân, tượng Phật trang nghiêm túc mục, là kho tàng nghệ thuật Phật giáo. Tuy ở loạn thế, các tăng lữ vẫn kiên thủ nơi này, ngày đêm tụng kinh không nghỉ. Chùa chiền giữ trung lập với các thế lực, không tham gia phân tranh thế tục, do đó được bảo toàn trong loạn thế. Nhưng âm thầm, không ít cao tăng sẽ lặng lẽ xuống núi cứu khốn phò nguy. Trong Tàng Kinh Động cất giữ lượng lớn kinh sách văn hiến, trong đó không thiếu bí tịch võ học. Hàng năm ngày Phật đản, tín đồ các nơi vân tập về đây, cảnh tượng tráng quan. Truyền thuyết trong một hang động bí mật nào đó, có cất giấu tâm đắc võ học do tăng lữ Thiên Trúc để lại, nhưng đến nay chưa ai tìm thấy.',
+                backgroundImage: 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/千佛洞/昼/石窟.jpg'
+            }
+        };
+
+        // ========== Danh sách NPC ========== [[11]]
+        // không dịch tên NPC để đảm bảo logic
+        const npcList = [
+            '洞庭君', '钱塘君', '萧白瑚', '姬姒', '破阵子',
+            '呼延显', '施延年', '雨烛', '安慕', '唐沐梨', '洛潜幽', '玄天青', '鹿椿若', '苓雪妃'
+        ];
+
+        let currentLocation = '';
+        let selectedNPCs = [];
+
+        const idToName = {
+            'A': '破阵子', 'B': '洞庭君', 'C': '钱塘君', 'D': '萧白瑚', 'E': '姬姒', 'F': '施延年',
+            'G': '呼延显', 'H': '雨烛', 'I': '安慕', 'J': '唐沐梨', 'K': '洛潜幽', 'L': '神秘杂役', 'M': '玄天青', 'N': '鹿椿若', 'O': '苓雪妃'
+        };
+
+        // Bảng dịch tên NPC sang tiếng Việt (chỉ dùng để hiển thị)
+        const npcNameMap = {
+            '洞庭君': 'Động Đình Quân',
+            '钱塘君': 'Tiền Đường Quân',
+            '萧白瑚': 'Tiêu Bạch Hô',
+            '姬姒': 'Cơ Tự',
+            '破阵子': 'Phá Trận Tử',
+            '呼延显': 'Hô Diên Hiển',
+            '施延年': 'Thi Diên Niên',
+            '雨烛': 'Vũ Chúc',
+            '安慕': 'An Mộ',
+            '唐沐梨': 'Đường Mộc Lê',
+            '洛潜幽': 'Lạc Tiềm U',
+            '玄天青': 'Huyền Thiên Thanh',
+            '鹿椿若': 'Lộc Xuân Nhược',
+            '苓雪妃': 'Linh Tuyết Phi',
+            '神秘杂役': 'Tạp Dịch Bí Ẩn'
+        };
+
+        // Hàm lấy tên hiển thị của NPC
+        function getNPCDisplayName(npcName) {
+            return npcNameMap[npcName] || npcName;
+        }
+
+        function hydrateFromParentQuery() {
+            const q = new URLSearchParams(window.location.search);
+
+            // 1) 声望
+            const rep = parseInt(q.get('reputation'), 10);
+            if (!Number.isNaN(rep)) {
+                playerReputation = rep; // 影响可出行判断和可邀请人数[[17]]
+            }
+
+            // 2) 传入的当前地图、事件标记（可选，主要用于回显/保持状态）
+            const ml = q.get('mapLocation');
+            if (ml) {
+                // 可按需用于默认选中/滚动到该地点，这里先存一份
+                window._incomingMapLocation = ml;
+            }
+            const re = parseInt(q.get('randomEvent'), 10);
+            if (!Number.isNaN(re)) randomEvent = re;
+            const be = parseInt(q.get('battleEvent'), 10);
+            if (!Number.isNaN(be)) battleEvent = be;
+
+            // 3) 随行NPC（可选，用于默认勾选）
+            try {
+                const comp = JSON.parse(q.get('companionNPC') || '[]');
+                if (Array.isArray(comp)) {
+                    window._incomingCompanions = comp; // 可在 showNPCList 里用来默认勾选
+                }
+            } catch (e) { }
+
+            // 4) 好感度：父页传的是以ID为键的对象，这里转成“中文名”为键
+            try {
+                const favorRaw = JSON.parse(q.get('npcFavorability') || '{}');
+                const favorByName = {};
+                Object.entries(favorRaw).forEach(([id, val]) => {
+                    const name = idToName[id] || id;
+                    favorByName[name] = val;
+                });
+                // 用传入数据覆盖默认的 npcCurrentFavor
+                npcCurrentFavor = { ...npcCurrentFavor, ...favorByName };
+            } catch (e) { }
+        }
+
+        // 初始化地图标记
+        function initializeMap() {
+            const mapBackground = document.getElementById('mapBackground');
+
+            // 生成事件
+            generateLocationEvents();
+
+            for (const [locationName, locationInfo] of Object.entries(locationDatabase)) {
+                const marker = document.createElement('div');
+                marker.className = 'map-marker';
+                marker.style.top = locationInfo.position.top;
+                marker.style.left = locationInfo.position.left;
+                marker.setAttribute('data-location', locationName);
+
+                // 检查是否有事件
+                const events = locationEvents[locationName];
+                let eventIndicator = '';
+                let hasEventClass = '';
+
+                if (events) {
+                    if (events.hasBattleEvent) {
+                        eventIndicator = '<span class="event-indicator event-battle">!</span>';
+                        hasEventClass = 'has-event';
+                    } else if (events.hasRandomEvent) {
+                        eventIndicator = '<span class="event-indicator event-random">!</span>';
+                        hasEventClass = 'has-event';
+                    }
+                }
+
+                marker.innerHTML = `
+                    <div class="marker-pin"></div>
+                    <div class="marker-label ${hasEventClass}">
+                        ${locationDatabase[locationName].displayName || locationName}
+                        ${eventIndicator}
+                    </div>
+                `;
+
+                marker.addEventListener('click', function () {
+                    currentLocation = locationName;
+                    showLocationInfo(locationName);
+                });
+
+                mapBackground.appendChild(marker);
+            }
+        }
+
+        // 显示地点信息
+        function showLocationInfo(location) {
+            // 隐藏地图关闭按钮
+            const closeBtn = document.querySelector('.map-close-btn');
+            if (closeBtn) {
+                closeBtn.style.display = 'none';
+            }
+            const modal = document.getElementById('locationModal');
+            const modalBody = document.getElementById('modalBody');
+            const modalFooter = document.getElementById('modalFooter');
+            const modalBg = document.getElementById('modalBg');
+
+            // 设置背景图片
+            modalBg.style.backgroundImage = `url('${locationDatabase[location].backgroundImage}')`;
+
+            // Kiểm tra danh vọng có đủ không
+            const requiredRep = locationReputationThreshold[location] || 0;
+            const canTravel = playerReputation >= requiredRep;
+
+            // Lấy thông tin mức độ nguy hiểm
+            const dangerInfo = locationDangerInfo[location] || {
+                danger: { level: '未知', desc: 'Tạm chưa có thông tin' },
+                friendly: { level: '未知', desc: 'Tạm chưa có thông tin' },
+                advice: ['Khuyên nên hành sự thận trọng']
+            };
+
+            // Bản đồ hiển thị tên mức độ (giữ nguyên logic class CSS dùng tiếng Trung)
+            const levelNameMap = {
+                '未知': 'Chưa rõ',
+                '低': 'Thấp',
+                '较低': 'Khá thấp',
+                '中': 'Trung bình',
+                '较高': 'Khá cao',
+                '高': 'Cao'
+            };
+
+            let dangerHTML = `
+                <div class="danger-info">
+                    <div class="info-row">
+                        <span class="info-label">Mức độ nguy hiểm:</span>
+                        <span class="danger-level danger-${dangerInfo.danger.level}">${levelNameMap[dangerInfo.danger.level] || dangerInfo.danger.level}</span>
+                        <span class="info-desc">${dangerInfo.danger.desc}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Mức độ thân thiện:</span>
+                        <span class="danger-level friendly-${dangerInfo.friendly.level}">${levelNameMap[dangerInfo.friendly.level] || dangerInfo.friendly.level}</span>
+                        <span class="info-desc">${dangerInfo.friendly.desc}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Gợi ý hành động:</span>
+                    </div>
+                    <div class="advice-list">
+                        ${dangerInfo.advice.map(advice => `<div class="advice-item">${advice}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+
+            modalBody.innerHTML = `
+                <div class="modal-header">
+                    <h2>${locationDatabase[location].displayName || location}</h2>
+                </div>
+                <div style="padding: 2vh 0;">
+                    <p>${locationDatabase[location].description}</p>
+                    ${dangerHTML}
+                    ${!canTravel ? `<div class="reputation-warning">⚠ Danh vọng không đủ! Cần ${requiredRep} danh vọng, hiện có ${playerReputation}</div>` : ''}
+                </div>
+            `;
+
+            if (canTravel) {
+                modalFooter.innerHTML = '<button class="btn" onclick="showNPCList()">Xuất phát</button>';
+            } else {
+                modalFooter.innerHTML = '<button class="btn" disabled style="opacity: 0.5; cursor: not-allowed;">Danh vọng không đủ</button>';
+            }
+
+            modal.style.display = 'block';
+        }
+
+        // Hiển thị danh sách NPC (phải chọn ít nhất 1 người mới có thể xuất phát)
+        function showNPCList() {
+            const modalBody = document.getElementById('modalBody');
+            const modalFooter = document.getElementById('modalFooter');
+
+            // Hiển thị tất cả NPC trong npcFavorThreshold
+            const allNPCs = Object.keys(npcFavorThreshold);
+            // Tính toán NPC có thể mời (hảo cảm đạt và ngưỡng không phải 999)
+            const eligibleNPCs = allNPCs.filter(npc => {
+                const threshold = npcFavorThreshold[npc];
+                const favor = (npcCurrentFavor[npc] || 0);
+                return threshold !== 999 && favor >= threshold;
+            });
+            const maxCount = getMaxNPCCount();
+
+            let npcHTML = `
+                <div class="modal-header">
+                    <h2>Chọn bạn đồng hành</h2>
+                </div>
+                <div style="padding: 2vh 0;">
+                    <p class="tip-text">Vui lòng chọn bạn đồng hành đi cùng đến ${locationDatabase[currentLocation].displayName || currentLocation} (tối đa ${maxCount} người, ít nhất 1 người)</p>
+                    <div class="npc-list">
+            `;
+
+            if (allNPCs.length > 0) {
+                allNPCs.forEach(npc => {
+                    const threshold = npcFavorThreshold[npc];
+                    const favor = (npcCurrentFavor[npc] || 0);
+                    const isLocked = threshold === 999;
+                    const isEligible = !isLocked && favor >= threshold;
+                    const disabledAttr = isEligible ? '' : 'disabled';
+                    const forceDisabledClass = isEligible ? '' : 'force-disabled';
+                    const itemDisabledClass = isEligible ? '' : 'disabled';
+                    const nameDisabledClass = isEligible ? '' : 'disabled';
+                    const hintText = isEligible
+                        ? ''
+                        : (isLocked ? 'Chức năng đi cùng đang đợi cập nhật để mở khóa' : `Cần hảo cảm ${threshold} (hiện tại ${favor})`);
+
+                    npcHTML += `
+                        <div class="npc-item ${itemDisabledClass}">
+                            <input type="checkbox" class="npc-checkbox ${forceDisabledClass}" id="npc-${npc}" value="${npc}" onchange="checkNPCLimit()" ${disabledAttr}>
+                            <label class="npc-name ${nameDisabledClass}" for="npc-${npc}">${getNPCDisplayName(npc)}</label>
+                            ${hintText ? `<span class="npc-hint">${hintText}</span>` : ''}
+                        </div>
+                    `;
+                });
+            } else {
+                npcHTML += '<p style="text-align: center; color: rgba(255,255,255,0.5);">Tạm không có bạn đồng hành nào (hảo cảm không đủ)</p>';
+            }
+
+            npcHTML += '</div></div>';
+            modalBody.innerHTML = npcHTML;
+
+            // Nút xuất phát: mặc định vô hiệu hóa; nếu không có bạn đồng hành khả dụng thì hiện "Không thể đi"
+            const travelBtnLabel = eligibleNPCs.length > 0 ? 'Lên đường' : 'Không thể đi';
+            modalFooter.innerHTML = `<button class="btn" id="travelBtn" onclick="goToLocation()" disabled>${travelBtnLabel}</button>`;
+
+            // Nếu trang cha truyền vào người đi cùng mặc định, cố gắng chọn sẵn (không vượt quá maxCount)
+            if (eligibleNPCs.length > 0 && Array.isArray(window._incomingCompanions) && window._incomingCompanions.length) {
+                let count = 0;
+                const preset = new Set(window._incomingCompanions);
+                eligibleNPCs.forEach(npc => {
+                    if (count >= maxCount) return;
+                    if (preset.has(npc)) {
+                        const cb = document.getElementById(`npc-${npc}`);
+                        if (cb) {
+                            cb.checked = true;
+                            count++;
+                        }
+                    }
+                });
+            }
+
+            // Áp dụng giới hạn số người và trạng thái nút
+            checkNPCLimit();
+        }
+
+        // Kiểm tra giới hạn số lượng NPC + chuyển đổi trạng thái nút "Lên đường" (ít nhất 1 người)
+        function checkNPCLimit() {
+            const checkboxes = document.querySelectorAll('.npc-checkbox');
+            const checkedCount = document.querySelectorAll('.npc-checkbox:checked').length;
+            const maxCount = getMaxNPCCount();
+
+            // Đạt đến giới hạn, vô hiệu hóa những cái chưa chọn; nếu không thì mở khóa tất cả
+            if (checkedCount >= maxCount) {
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.checked) checkbox.disabled = true;
+                });
+            } else {
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.classList.contains('force-disabled')) {
+                        checkbox.disabled = false;
+                    }
+                });
+            }
+
+            // Phải chọn ít nhất 1 người mới có thể xuất phát
+            const travelBtn = document.getElementById('travelBtn');
+            if (travelBtn) {
+                const canTravel = checkedCount >= 1;
+                travelBtn.disabled = !canTravel;
+                travelBtn.textContent = canTravel ? 'Lên đường' : 'Vui lòng chọn bạn đồng hành';
+            }
+        }
+
+        // Đến địa điểm (ít nhất 1 NPC đi cùng)
+        function goToLocation() {
+            // Ẩn nút đóng bản đồ (vì đã chọn đi du lịch)
+            const closeBtn = document.querySelector('.map-close-btn');
+            if (closeBtn) {
+                closeBtn.style.display = 'none';
+            }
+
+            selectedNPCs = [];
+            document.querySelectorAll('.npc-checkbox:checked').forEach(checkbox => {
+                selectedNPCs.push(checkbox.value);
+            });
+
+            // Bắt buộc kiểm tra: ít nhất 1 người
+            if (selectedNPCs.length < 1) {
+                const tip = document.querySelector('.tip-text');
+                if (tip) {
+                    tip.style.color = '#FF6B6B';
+                    tip.textContent = 'Vui lòng chọn ít nhất một bạn đồng hành rồi mới xuất phát';
+                }
+                const travelBtn = document.getElementById('travelBtn');
+                if (travelBtn) travelBtn.disabled = true;
+                return;
+            }
+
+            // Kiểm tra địa điểm hiện tại có sự kiện không
+            const events = locationEvents[currentLocation];
+
+            // Đặt lại dấu hiệu sự kiện
+            let newRandomEvent = 0;
+            let newBattleEvent = 0;
+            if (events) {
+                if (events.hasBattleEvent) {
+                    newBattleEvent = 1;
+                    console.log(`Kích hoạt sự kiện chiến đấu! Địa điểm: ${currentLocation}`);
+                } else if (events.hasRandomEvent) {
+                    newRandomEvent = 1;
+                    console.log(`Kích hoạt sự kiện ngẫu nhiên! Địa điểm: ${currentLocation}`);
+                }
+            }
+
+            // Ghi kết quả cục bộ vào toàn cục, để confirmTravel gửi lại
+            randomEvent = newRandomEvent;
+            battleEvent = newBattleEvent;
+
+            // Hiển thị thông tin xác nhận
+            const modalBody = document.getElementById('modalBody');
+            const modalFooter = document.getElementById('modalFooter');
+
+            let eventWarning = '';
+            if (events && events.hasBattleEvent) {
+                eventWarning = '<p style="color: #FF4444; font-weight: bold;">⚠ Nơi này có chiến đấu!</p>';
+            } else if (events && events.hasRandomEvent) {
+                eventWarning = '<p style="color: #FFD700; font-weight: bold;">✦ Nơi này có sự kiện đặc biệt!</p>';
+            }
+
+            const message = `
+                <div class="result-message">
+                    <h3>Khởi hành</h3>
+                    ${eventWarning}
+                    <p>Cùng ${selectedNPCs.map(getNPCDisplayName).join(', ')} đi đến ${locationDatabase[currentLocation].displayName || currentLocation}</p>
+                </div>
+            `;
+
+            modalBody.innerHTML = message;
+            modalFooter.innerHTML = '<button class="btn" onclick="confirmTravel()">Xác nhận</button>';
+        }
+
+        // 新增确认旅行函数
+        function confirmTravel() {
+            // 向父窗口发送数据
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'worldmap-exit',
+                    mapLocation: currentLocation,
+                    companionNPC: selectedNPCs,
+                    randomEvent: randomEvent,
+                    battleEvent: battleEvent
+                }, '*');
+            }
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('locationModal').style.display = 'none';
+            selectedNPCs = [];
+
+            // 重新显示地图关闭按钮
+            const closeBtn = document.querySelector('.map-close-btn');
+            if (closeBtn) {
+                closeBtn.style.display = 'block';
+            }
+        }
+
+        function exitMap() {
+            // 不发送任何消息，直接关闭地图页面
+            // 如果是在iframe中，尝试通知父窗口关闭modal（不传递数据）
+            if (window.parent !== window) {
+                // 只是通知关闭，不传递任何游戏数据
+                window.parent.postMessage({
+                    type: 'worldmap-close'
+                }, '*');
+            }
+        }
+
+        // 点击背景关闭弹窗
+        window.addEventListener('click', function (event) {
+            const modal = document.getElementById('locationModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        // 页面加载完成后初始化地图
+        window.addEventListener('DOMContentLoaded', () => {
+            hydrateFromParentQuery();   // 先吃掉父页传入的数据
+            initializeMap();            // 再初始化地图（会用到 playerReputation 等）
+        });
+    </script>
+</body>
+
+</html>

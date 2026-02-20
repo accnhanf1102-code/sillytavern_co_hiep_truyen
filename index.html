@@ -67,6 +67,36 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-styles.css">
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-styles-theme.css" id="theme-css">
+
+    <!-- Nhúng Font Google cho phong cách Tiên Hiệp (Đã sửa lỗi hiển thị chữ đ, â) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400..900;1,400..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* Ghi đè font cho phong cách Cổ Phong/Tiên Hiệp */
+        body,
+        .container {
+            font-family: 'Literata', serif !important;
+        }
+
+        /* Font riêng cho nội dung cốt truyện với Alegreya - hỗ trợ tiếng Việt cực tốt */
+        #story-text {
+            font-family: 'Alegreya', serif !important;
+            line-height: 1.7;
+            letter-spacing: 0.3px;
+            font-size: 1.05em;
+        }
+
+        /* Tiêu đề các cảnh */
+        .scene-title,
+        h3 {
+            font-family: 'Alegreya', serif !important;
+            font-weight: 800;
+        }
+    </style>
 </head>
 
 <body>
@@ -86,8 +116,8 @@
                 <div id="map-scene" class="scene active">
                     <div class="status-display">
                         <div class="date-display" id="date-display">Năm 1 Tháng 1 Tuần 1</div>
-                        <div class="mood-display" id="mood-display">Điểm Hành Động: 100</div>
-                        <div class="action-points-display" id="action-points-display">行动点: 3</div>
+                        <div class="mood-display" id="mood-display">Thể Lực: 100</div>
+                        <div class="action-points-display" id="action-points-display">Điểm Hành Động: 3</div>
                     </div>
                     <button class="refresh-npc-btn" onclick="refreshNpcLocations()">刷新NPC位置</button>
                     <div class="location" id="yanwuchang"></div>
@@ -259,7 +289,7 @@
                     <div class="scene-title">Lò Rèn</div>
                     <div class="npc-container" id="tiejiangpu-npcs"></div>
                     <div class="scene-actions">
-                        <button class="scene-btn" onclick="performAction('打铁', 'tiejiangpu')">Rèn sắt</button>
+                        <button class="scene-btn" onclick="performAction('Rèn Sắt', 'tiejiangpu')">Rèn sắt</button>
                         <button class="scene-btn" onclick="showTrading('equipment')">Giao dịch</button>
                     </div>
                 </div>
@@ -816,46 +846,43 @@
     <!-- 加载外部库 -->
     <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
     <!-- 从GitHub加载游戏模块 -->
-    <!-- <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-config.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-utils.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-state.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-ui.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-helpers.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-events.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/special-event.js"></script> -->
-    <!-- <script
-        src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-config.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-utils.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-state.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-ui.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-helpers.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module1/game-events.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/special-event.js"></script>
-    <script> -->
     <script
         src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.3/game-config.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-utils.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-state.js"></script> -->
+    <script
+        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.3/game-ui.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.3/game-helpers.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/game-events.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.1/special-event.js"></script>  -->
+    <!-- <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-config.js"></script> -->
     <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-utils.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-state.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-ui.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/gh/accnhanf1102-code/sillytavern_co_hiep_truyen@main/V0.3/game-helpers.j"></script>
-    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module1/game-events.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-ui.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-helpers.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/game-events.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6c/module/special-event.js"></script>
+
     <script>
+        // Debug function for background URL
+        function debugLogBackgroundURL() {
+            try {
+                const seasonMap = { 'spring': '春', 'summer': '夏', 'autumn': '秋', 'winter': '冬' };
+                const dayNightMap = { 'daytime': '昼', 'night': '夜' };
+                const season = seasonMap[seasonStatus] || '冬';
+                const dayNight = dayNightMap[dayNightStatus] || '昼';
+                const backgroundUrl = `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/天山派_${season}_${dayNight}.webp`;
+                console.error("Initialized Background URL Debug:", backgroundUrl);
+            } catch (e) {
+                console.warn("Debug Background URL failed (variables might not be initialized yet):", e.message);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+            // Log debug background URL immediately on load
+            debugLogBackgroundURL();
+
             // 记录原始渲染环境状态
             window._originalRenderer = {
                 hasSTscript: typeof window.STscript === 'function',
@@ -1265,17 +1292,17 @@
 
                 // 再次检查条件
                 if (npcGiftGiven[npcId]) {
-                    showModal('本周已经给该NPC送过礼物了！');
+                    showModal('Tuần này đã tặng quà cho vị đạo hữu này rồi!');
                     return;
                 }
 
                 if (currentFavorability > 40) {
-                    showModal(`${npc.name}的好感度已经超过40，无需再送礼！`);
+                    showModal(`Độ hảo cảm của ${npc.name} đã vượt quá 40, không cần tặng quà nữa!`);
                     return;
                 }
 
                 if (playerStats.金钱 < 500) {
-                    showModal('金钱不足500，无法送礼！');
+                    showModal('Tiền không đủ 500, không thể tặng quà!');
                     return;
                 }
 
@@ -1289,8 +1316,8 @@
                 updateRelationshipsDisplay();
 
                 // 发送消息
-                const message = `你花费500金钱给${npc.name}送了一份礼物<br>` +
-                    `${npc.name}的好感度提升至${npcFavorability[npcId]}`;
+                const message = `Bạn đã chi 500 Kim Tệ để tặng quà cho ${npc.name}<br>` +
+                    `Độ hảo cảm của ${npc.name} đã tăng lên ${npcFavorability[npcId]}`;
 
                 await showModal(message);
             }
@@ -1298,8 +1325,8 @@
             // 修改 skipWeek 函数，在跳过周时重置送礼状态
             async function skipWeek() {
                 showConfirmModal(
-                    '确认跳过',
-                    '确定要跳过这一周吗？',
+                    'Xác nhận trôi nhanh',
+                    'Bạn có chắc chắn muốn trôi nhanh qua tuần này không？',
                     async () => {
                         currentWeek++;
                         actionPoints = 3;
@@ -1365,7 +1392,7 @@
                 }
                 if (action === '秘密赌场') {
                     if (actionPoints < 1) {
-                        showModal('行动点不足，无法进行此操作！');
+                        showModal('Điểm hành động không đủ, không thể thực hiện thao tác này！');
                         return;
                     }
 
@@ -1417,7 +1444,7 @@
                 }
 
                 if (actionPoints < 1) {
-                    showModal('行动点不足，无法进行此操作！');
+                    showModal('Điểm hành động không đủ, không thể thực hiện thao tác này!');
                     return;
                 }
 

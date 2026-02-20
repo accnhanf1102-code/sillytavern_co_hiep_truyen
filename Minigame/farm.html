@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Mini Farm (4x3)</title>
+    <link rel="icon" type="image/png"
+        href="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/icon/favicon.png" />
+    <style>
+        :root {
+            /* 响应式tile-size：基于视口宽度计算 */
+            --tile-size: calc(100vw / 12);
+            /* 12列占满整个视口宽度 */
+            --gap: 6px;
+            --radius: 8px;
+            --bg: #000000;
+            --panel-bg: #0b0b0bcc;
+            --text: #e6e6e6;
+            --accent: rgba(0, 0, 0, 0.7);
+            --danger: #d9534f;
+        }
+
+        /* 限制最大tile尺寸，避免在超大屏幕上过大 */
+        @media (min-width: 1200px) {
+            :root {
+                --tile-size: 100px;
+                /* 最大100px */
+            }
+        }
+
+        /* 在较小屏幕上调整 */
+        @media (max-width: 600px) {
+            :root {
+                --tile-size: calc(100vw / 12);
+                /* 保持12列 */
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", Arial, "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px 14px;
+            gap: 10px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.45) 60%, rgba(0, 0, 0, 0));
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+
+        .money {
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .money img {
+            width: 18px;
+            vertical-align: -3px;
+            margin-right: 6px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ffffff;
+            background: #000000;
+            color: #ffffff;
+            cursor: pointer;
+            transition: transform .05s ease;
+            font-weight: 600;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button.danger {
+            background: var(--danger);
+            color: white;
+            border: 1px solid #ffffff;
+        }
+
+        button:hover {
+            background: #1a1a1a;
+        }
+
+        button.primary {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+        }
+
+        button.primary:hover {
+            background: #1a1a1a;
+        }
+
+        button:disabled {
+            background: #333333;
+            color: #999999;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        main {
+            padding-top: calc(68px + env(safe-area-inset-top, 0px));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(12, var(--tile-size));
+            grid-template-rows: repeat(9, var(--tile-size));
+            gap: 0;
+            padding: 0;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: var(--radius);
+            width: calc(12 * var(--tile-size));
+            /* 明确设置宽度 */
+            position: relative;
+            margin: 0 auto;
+            /* 居中 */
+        }
+
+        /* 在大屏幕上限制最大宽度 */
+        @media (min-width: 1200px) {
+            #grid {
+                width: 1200px;
+                /* 12 * 100px */
+            }
+        }
+
+        #decorLayer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .tile {
+            position: relative;
+            width: var(--tile-size);
+            height: var(--tile-size);
+            border-radius: 0;
+            overflow: visible;
+            box-shadow: 0 2px 6px #0000001a inset, 0 1px 0 #ffffff59 inset;
+            background: #6bbf6b;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .tile.farm:hover {
+            transform: scale(1.02);
+        }
+
+        .tile .ground {
+            position: absolute;
+            inset: 0;
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+        }
+
+        .tile .crop {
+            position: absolute;
+            inset: 0;
+            object-fit: contain;
+            width: 100%;
+            height: 100%;
+            padding: 6px;
+        }
+
+        .decor {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 6px;
+            pointer-events: none;
+        }
+
+        .tree3x3 {
+            position: absolute;
+            width: calc(var(--tile-size) * 3);
+            height: calc(var(--tile-size) * 3);
+            object-fit: contain;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* Shop overlay */
+        #shopOverlay {
+            position: fixed;
+            inset: 0;
+            background: #00000066;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            padding: 20px;
+        }
+
+        .shop {
+            width: min(720px, 100%);
+            max-height: 90vh;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px #00000040;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .shop-header {
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0);
+            color: #ffffff;
+            padding: 14px;
+            box-shadow: 0 1px 0 #0000000f;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .shop-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .shop .content {
+            padding: clamp(6px, 1.5vw, 16px);
+            padding-top: clamp(4px, 1vw, 12px);
+            /* 顶部少量空隙 */
+            display: flex;
+            align-items: flex-start;
+            /* 靠上对齐 */
+            justify-content: center;
+            overflow-y: auto;
+            flex: 1;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 商城网格：始终2x2布局，响应式等比例缩放 */
+        .shop .items {
+            display: grid;
+            grid-template-columns: repeat(2, 40vw);
+            /* 每列40vw */
+            grid-template-rows: repeat(2, auto);
+            /* 高度自适应 */
+            gap: clamp(4px, 1.5vw, 12px);
+            justify-content: center;
+        }
+
+        /* 商品卡片：宽高比3:2 */
+        .shop .card {
+            width: 40vw;
+            aspect-ratio: 3 / 2;
+            /* 宽高比3:2 */
+            border: 2px solid #000000;
+            /* 加黑加粗边框 */
+            border-radius: clamp(4px, 1vw, 8px);
+            padding: clamp(4px, 1vw, 12px);
+            text-align: center;
+            color: #000000;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+        }
+
+        .shop .card img {
+            height: clamp(24px, 8vw, 80px);
+            /* 响应式图片高度 */
+            max-width: 100%;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .shop .card div:not(.card-controls) {
+            font-size: clamp(10px, 2.5vw, 16px);
+            /* 响应式字体 */
+            line-height: 1.2;
+        }
+
+        .card-controls {
+            margin-top: clamp(2px, 0.5vw, 8px);
+            display: flex;
+            gap: clamp(2px, 0.5vw, 6px);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .card-controls button {
+            padding: clamp(3px, 0.8vw, 8px) clamp(4px, 1vw, 12px);
+            font-size: clamp(9px, 2vw, 14px);
+            flex: 1;
+            min-width: calc(30% - 4px);
+        }
+
+        /* Context popover */
+        #popup {
+            position: fixed;
+            z-index: 1000;
+            display: none;
+        }
+
+        .popover {
+            min-width: 220px;
+            max-width: min(86vw, 360px);
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px #00000033;
+            border: 1px solid #00000012;
+            overflow: hidden;
+        }
+
+        .popover header {
+            padding: 10px 12px;
+            font-weight: 700;
+            background: #f7fafad9;
+            border-bottom: 1px solid #0000000e;
+        }
+
+        .popover .body {
+            padding: 10px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .popover .choices {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .popover .choices button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px;
+            flex-direction: column;
+        }
+
+        .popover .choices img {
+            height: 28px;
+        }
+
+        .popover .actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .popover .hint {
+            font-size: 12px;
+            color: #0f0f0f;
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        .bar {
+            background: #edf2f7;
+            border-radius: 6px;
+            height: 10px;
+            overflow: hidden;
+        }
+
+        .bar>span {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38b2ac);
+            width: 0%;
+        }
+
+        .bar-row {
+            display: grid;
+            grid-template-columns: 72px 1fr auto;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bar-row small {
+            opacity: 1;
+            color: #000000;
+        }
+
+        .muted {
+            color: #000000;
+        }
+
+        /* 成熟高亮闪烁效果 */
+        @keyframes glowPulseFilter {
+            0% {
+                filter: drop-shadow(0 0 0 rgba(255, 215, 0, 0)) drop-shadow(0 0 0 rgba(255, 255, 200, 0));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 14px rgba(255, 215, 0, 0.9)) drop-shadow(0 0 8px rgba(255, 255, 200, 0.8));
+            }
+
+            100% {
+                filter: drop-shadow(0 0 0 rgba(255, 215, 0, 0)) drop-shadow(0 0 0 rgba(255, 255, 200, 0));
+            }
+        }
+
+        @keyframes glowPulseFilterGray {
+            0% {
+                filter: grayscale(1) brightness(0.85) drop-shadow(0 0 0 rgba(255, 215, 0, 0)) drop-shadow(0 0 0 rgba(255, 255, 200, 0));
+            }
+
+            50% {
+                filter: grayscale(1) brightness(0.85) drop-shadow(0 0 14px rgba(255, 215, 0, 0.9)) drop-shadow(0 0 8px rgba(255, 255, 200, 0.8));
+            }
+
+            100% {
+                filter: grayscale(1) brightness(0.85) drop-shadow(0 0 0 rgba(255, 215, 0, 0)) drop-shadow(0 0 0 rgba(255, 255, 200, 0));
+            }
+        }
+
+        .crop-glow {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+            animation: glowPulseFilter 1.2s infinite;
+            z-index: 3;
+        }
+
+        .crop-glow.gray {
+            animation: glowPulseFilterGray 1.2s infinite;
+        }
+
+        /* 移动端优化 */
+        @media (max-width: 640px) {
+            header {
+                padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px 10px;
+            }
+
+            .header-actions {
+                gap: 4px;
+            }
+
+            .header-actions button {
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            main {
+                padding-top: calc(60px + env(safe-area-inset-top, 0px));
+            }
+
+            /* 移动端保持网格完整显示 */
+            #grid {
+                transform: none;
+                /* 移除缩放 */
+            }
+
+            .dropdown-wrapper {
+                flex: 1;
+                min-width: 0;
+            }
+
+            #btnBatchProcess {
+                width: 100%;
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            .batch-dropdown {
+                min-width: 100%;
+                max-width: 200px;
+            }
+
+            .dropdown-item {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+
+            /* 商店移动端适配 - 仅调整外框，保留vw响应式内容布局 */
+            #shopOverlay {
+                padding: 0;
+            }
+
+            .shop {
+                width: 100%;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+
+            .shop-header {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 10px;
+            }
+
+            .shop-header strong {
+                width: 100%;
+                font-size: 16px;
+            }
+
+            .shop-header-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .shop-header-right .money {
+                width: auto;
+                font-size: 14px;
+            }
+
+            /* 内容区域保留vw响应式设计，不覆盖 */
+
+            .popover .choices {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* 特别小的手机 */
+        @media (max-width: 380px) {
+            .header-actions button {
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+
+            .dropdown-item {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .money {
+                font-size: 14px;
+            }
+
+            .money img {
+                width: 16px;
+            }
+
+            /* 极小屏幕商城适配 - 仅调整header，保留vw响应式内容布局 */
+            .shop-header {
+                padding: 8px;
+                gap: 6px;
+            }
+
+            .shop-header strong {
+                font-size: 14px;
+            }
+
+            .shop-header-right .money {
+                font-size: 12px;
+            }
+
+            .shop-header-right button {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            /* 内容区域保留vw响应式设计，不覆盖 */
+        }
+
+        /* 横屏优化 */
+        @media (orientation: landscape) and (max-height: 500px) {
+            header {
+                padding: 5px 10px;
+            }
+
+            main {
+                padding-top: 50px;
+            }
+
+            .header-actions button {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            .dropdown-item {
+                padding: 5px 8px;
+                font-size: 11px;
+            }
+        }
+
+        .event-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .event-popup {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border: 2px solid #444;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 480px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+                0 0 100px rgba(255, 255, 255, 0.1) inset;
+            animation: popupBounce 0.5s ease;
+        }
+
+        @keyframes popupBounce {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+
+            60% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .event-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 20px currentColor);
+            animation: iconPulse 2s ease infinite;
+        }
+
+        @keyframes iconPulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .event-title {
+            color: #fff;
+            font-size: 28px;
+            margin: 0 0 15px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .event-desc {
+            color: #ddd;
+            font-size: 18px;
+            line-height: 1.6;
+            margin: 0 0 30px;
+        }
+
+        .event-confirm {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .event-confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .event-confirm:active {
+            transform: translateY(0);
+        }
+
+        /* 不同事件类型的特殊样式 */
+        .event-rain .event-icon {
+            color: #64B5F6;
+        }
+
+        .event-rain .event-popup {
+            background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+            border-color: #42A5F5;
+        }
+
+        .event-locust .event-icon {
+            color: #FF7043;
+        }
+
+        .event-locust .event-popup {
+            background: linear-gradient(135deg, #D84315 0%, #BF360C 100%);
+            border-color: #FF5722;
+        }
+
+        .event-locust .event-confirm {
+            background: linear-gradient(135deg, #FF5722 0%, #E64A19 100%);
+        }
+
+        .event-sunny .event-icon {
+            color: #FFD54F;
+        }
+
+        .event-sunny .event-popup {
+            background: linear-gradient(135deg, #F9A825 0%, #F57F17 100%);
+            border-color: #FFC107;
+        }
+
+        .event-sunny .event-confirm {
+            background: linear-gradient(135deg, #FFC107 0%, #FFA000 100%);
+        }
+
+        .event-beast .event-icon {
+            color: #E57373;
+        }
+
+        .event-beast .event-popup {
+            background: linear-gradient(135deg, #C62828 0%, #B71C1C 100%);
+            border-color: #F44336;
+        }
+
+        .event-beast .event-confirm {
+            background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
+        }
+
+        /* 移动端事件弹窗适配 */
+        @media (max-width: 640px) {
+            .event-popup {
+                padding: 30px 20px;
+            }
+
+            .event-icon {
+                font-size: 60px;
+            }
+
+            .event-title {
+                font-size: 24px;
+            }
+
+            .event-desc {
+                font-size: 16px;
+            }
+        }
+
+        /* 下拉菜单样式 */
+        .dropdown-wrapper {
+            position: relative;
+        }
+
+        .batch-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            min-width: 120px;
+            background: #000000;
+            border: 1px solid #ffffff;
+            border-radius: 6px;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .batch-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            width: 100%;
+            padding: 10px 16px;
+            text-align: left;
+            background: #000000;
+            color: #ffffff;
+            border: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: #1a1a1a;
+        }
+
+        #btnBatchProcess::after {
+            content: " ▼";
+            font-size: 12px;
+            margin-left: 4px;
+        }
+
+        /* 通用弹窗覆盖 */
+        #uiOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.72);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 16px;
+        }
+
+        .ui-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 12px;
+            background: #000;
+        }
+
+        .ui-actions .full {
+            grid-template-columns: 1fr;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="money"><img
+                src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/icon/money_icon.png"
+                alt="money" /> <span id="money">500</span></div>
+        <div class="header-actions">
+            <div class="dropdown-wrapper">
+                <button id="btnBatchProcess" class="primary">Xử Lý Nhanh</button>
+                <div id="batch-dropdown" class="batch-dropdown">
+                    <button class="dropdown-item" id="btnBatchWater">Tưới Tất Cả</button>
+                    <button class="dropdown-item" id="btnBatchDeworm">Diệt Sâu Hết</button>
+                    <button class="dropdown-item" id="btnBatchFertilize">Bón Phân Hết</button>
+                </div>
+            </div>
+            <button id="btnShop">Cửa Hàng</button>
+            <button id="btnExitFarm" class="danger">Thoát Game</button>
+        </div>
+    </header>
+    <main>
+        <section>
+            <div id="grid" aria-label="Lưới Nông Trại 4x3" role="grid"></div>
+        </section>
+    </main>
+    <!-- 退出耕种确认弹窗（全屏固定，移动端可见） -->
+    <style>
+        #exitOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.72);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 16px;
+        }
+
+        .exit-dialog {
+            width: clamp(260px, 80vw, 420px);
+            max-width: 90vw;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            background: #111;
+            color: #fff;
+            border: 1px solid #444;
+        }
+
+        .exit-dialog header {
+            padding: 14px;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            background: #000;
+        }
+
+        .exit-dialog .body {
+            padding: 16px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .exit-dialog .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 12px;
+            background: #000;
+        }
+
+        .exit-dialog .actions button {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #666;
+            background: #181818;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .exit-dialog .actions button.confirm {
+            background: #d9534f;
+            border-color: #f0a4a2;
+        }
+
+        .exit-dialog .actions button:hover {
+            filter: brightness(1.1);
+        }
+    </style>
+    <div id="exitOverlay" role="dialog" aria-modal="true" aria-label="Xác Nhận Thoát">
+        <div class="exit-dialog">
+            <header>Xác Nhận</header>
+            <div class="body">Bạn có chắc muốn thoát không?</div>
+            <div class="actions">
+                <button id="exitCancel">Hủy</button>
+                <button id="exitConfirm" class="confirm">Xác Nhận</button>
+            </div>
+        </div>
+    </div>
+    <!-- 通用提示/确认弹窗 -->
+    <div id="uiOverlay" role="dialog" aria-modal="true" aria-label="Thông Báo">
+        <div class="exit-dialog">
+            <header id="uiTitle">Thông Báo</header>
+            <div class="body" id="uiBody">Nội Dung</div>
+            <div class="actions" id="uiActions">
+                <button id="uiCancel">Hủy</button>
+                <button id="uiOk" class="confirm">Đồng Ý</button>
+            </div>
+        </div>
+    </div>
+    <!-- Event popup -->
+    <div id="eventOverlay" class="event-overlay">
+        <div class="event-popup">
+            <div class="event-icon" id="eventIcon"></div>
+            <h2 class="event-title" id="eventTitle"></h2>
+            <p class="event-desc" id="eventDesc"></p>
+            <button class="event-confirm" id="eventConfirm">Xác Nhận</button>
+        </div>
+    </div>
+
+    <!-- Shop overlay -->
+    <div id="shopOverlay">
+        <div class="shop">
+            <header class="shop-header">
+                <strong>Cửa Hàng</strong>
+                <div class="shop-header-right">
+                    <span class="money"><img
+                            src="https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/icon/money_icon.png"
+                            alt="money" /> <span id="shopMoney">0</span></span>
+                    <button id="btnCloseShop">Về Nông Trại</button>
+                </div>
+            </header>
+            <div class="content">
+                <div class="items" id="shopItems"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contextual popup -->
+    <div id="popup"></div>
+
+    <script>
+        // --- Assets and crop config ---
+        const CROPS = {
+            wheat: {
+                id: 'wheat', name: 'Lúa Mì', maturityRequired: 6, basePrice: 75, baseSell: 360,
+                images: [0, 1, 2, 3, 4, 5, 6].map(i => `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/crops/wheat${i}.png`)
+            },
+            eggplant: {
+                id: 'eggplant', name: 'Cà Tím', maturityRequired: 8, basePrice: 115, baseSell: 560,
+                images: [0, 1, 2, 3, 4, 5, 6].map(i => `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/crops/eggplant${i}.png`)
+            },
+            melon: {
+                id: 'melon', name: 'Dưa Gang', maturityRequired: 10, basePrice: 165, baseSell: 825,
+                images: [0, 1, 2, 3, 4, 5, 6].map(i => `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/crops/melon${i}.png`)
+            },
+            sugarcane: {
+                id: 'sugarcane', name: 'Mía', maturityRequired: 12, basePrice: 240, baseSell: 1200,
+                images: [0, 1, 2, 3, 4, 5, 6].map(i => `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/crops/sugarcane${i}.png`)
+            }
+        };
+
+        // Embedded layout
+        const EMBEDDED_LAYOUT = {
+            scene: { rows: 9, cols: 12 },
+            farm: { rows: 3, cols: 4 },
+            decor: {
+                trees: [
+                    { r: 2, c: 2 },
+                    { r: 2, c: 6 },
+                    { r: 3, c: 3 },
+                    { r: 3, c: 8 },
+                    { r: 4, c: 10 },
+                    { r: 5, c: 2 },
+                    { r: 5, c: 9 },
+                    { r: 7, c: 1 },
+                    { r: 7, c: 10 },
+                    { r: 8, c: 5 }
+                ],
+                singles: [
+                    { r: 0, c: 1, type: 'plant0' },
+                    { r: 0, c: 2, type: 'plant0' },
+                    { r: 0, c: 3, type: 'plant0' },
+                    { r: 0, c: 5, type: 'rock0' },
+                    { r: 0, c: 7, type: 'trunk0' },
+                    { r: 0, c: 9, type: 'rock0' },
+                    { r: 0, c: 10, type: 'plant0' },
+                    { r: 0, c: 11, type: 'plant0' },
+                    { r: 1, c: 2, type: 'rock0' },
+                    { r: 1, c: 3, type: 'plant0' },
+                    { r: 1, c: 4, type: 'plant0' },
+                    { r: 1, c: 5, type: 'rock0' },
+                    { r: 1, c: 10, type: 'plant0' },
+                    { r: 1, c: 11, type: 'trunk0' },
+                    { r: 2, c: 1, type: 'rock0' },
+                    { r: 2, c: 3, type: 'rock0' },
+                    { r: 2, c: 4, type: 'trunk0' },
+                    { r: 2, c: 7, type: 'rock0' },
+                    { r: 2, c: 8, type: 'plant0' },
+                    { r: 2, c: 9, type: 'plant0' },
+                    { r: 2, c: 11, type: 'trunk0' },
+                    { r: 3, c: 0, type: 'plant0' },
+                    { r: 3, c: 9, type: 'trunk0' },
+                    { r: 3, c: 11, type: 'rock0' },
+                    { r: 4, c: 0, type: 'rock0' },
+                    { r: 4, c: 3, type: 'plant0' },
+                    { r: 4, c: 10, type: 'plant0' },
+                    { r: 4, c: 11, type: 'rock0' },
+                    { r: 5, c: 0, type: 'trunk0' },
+                    { r: 5, c: 10, type: 'plant0' },
+                    { r: 5, c: 11, type: 'trunk0' },
+                    { r: 6, c: 0, type: 'rock0' },
+                    { r: 6, c: 2, type: 'plant0' },
+                    { r: 6, c: 4, type: 'plant0' },
+                    { r: 6, c: 5, type: 'rock0' },
+                    { r: 6, c: 6, type: 'rock0' },
+                    { r: 6, c: 8, type: 'rock0' },
+                    { r: 6, c: 10, type: 'trunk0' },
+                    { r: 6, c: 11, type: 'rock0' },
+                    { r: 7, c: 0, type: 'rock0' },
+                    { r: 7, c: 2, type: 'plant0' },
+                    { r: 7, c: 5, type: 'rock0' },
+                    { r: 7, c: 6, type: 'rock0' },
+                    { r: 7, c: 9, type: 'plant0' },
+                    { r: 8, c: 0, type: 'trunk0' },
+                    { r: 8, c: 2, type: 'trunk0' },
+                    { r: 8, c: 3, type: 'plant0' },
+                    { r: 8, c: 4, type: 'trunk0' },
+                    { r: 8, c: 8, type: 'rock0' },
+                    { r: 8, c: 9, type: 'rock0' }
+                ]
+            }
+        };
+
+        // --- Game state ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialMoney = parseInt(urlParams.get('money')) || 500;
+        const initialWeek = parseInt(urlParams.get('week')) || 1;
+        const lastFarmWeek = parseInt(urlParams.get('lastFarmWeek')) || 1;
+
+        const initialSeeds = {
+            wheat: parseInt(urlParams.get('wheat')) || 0,
+            eggplant: parseInt(urlParams.get('eggplant')) || 0,
+            melon: parseInt(urlParams.get('melon')) || 0,
+            sugarcane: parseInt(urlParams.get('sugarcane')) || 0
+        };
+
+        let savedGrid = [];
+        try {
+            const gridParam = urlParams.get('farmGrid');
+            if (gridParam) {
+                savedGrid = JSON.parse(gridParam);
+            }
+        } catch (e) {
+            console.error('Failed to parse farm grid:', e);
+        }
+
+        const state = {
+            week: initialWeek,
+            money: initialMoney,
+            inventory: initialSeeds,
+            grid: savedGrid.length > 0 ? savedGrid : [],
+            selected: null,
+            decor: { trees: [], singles: [] },
+            eventQueue: [] // 新增：事件队列
+        };
+
+        function createEmptyPlot() {
+            return {
+                planted: false,
+                cropId: null,
+                maturity: 0,
+                health: 100,
+                quality: 0,
+                interactedThisWeek: false
+            };
+        }
+
+        // --- DOM refs ---
+        const elGrid = document.getElementById('grid');
+        const elMoney = document.getElementById('money');
+        const elWeek = null;
+        const elShopOverlay = document.getElementById('shopOverlay');
+        const elShopItems = document.getElementById('shopItems');
+        const elShopMoney = document.getElementById('shopMoney');
+
+        // --- Initialize grid ---
+        async function initGrid() {
+            const sceneRows = 9, sceneCols = 12;
+            const farmRows = 3, farmCols = 4;
+            const farmTop = Math.floor((sceneRows - farmRows) / 2);
+            const farmLeft = Math.floor((sceneCols - farmCols) / 2);
+
+            if (savedGrid.length > 0) {
+                state.grid = savedGrid;
+            } else {
+                state.grid = Array.from({ length: farmRows }, () =>
+                    Array.from({ length: farmCols }, () => createEmptyPlot())
+                );
+            }
+
+            elGrid.innerHTML = '';
+            state.decor = { trees: [], singles: [] };
+            window.__decorLayerEl = document.createElement('div');
+            __decorLayerEl.id = 'decorLayer';
+
+            for (let r = 0; r < sceneRows; r++) {
+                for (let c = 0; c < sceneCols; c++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.dataset.sceneR = r;
+                    tile.dataset.sceneC = c;
+
+                    const isFarm = r >= farmTop && r < farmTop + farmRows && c >= farmLeft && c < farmLeft + farmCols;
+
+                    const ground = document.createElement('img');
+                    ground.className = 'ground';
+                    ground.src = isFarm ? 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/ground/grass_farm.png' : 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/ground/grass.png';
+                    tile.appendChild(ground);
+
+                    if (isFarm) {
+                        tile.classList.add('farm');
+                        const crop = document.createElement('img');
+                        crop.className = 'crop';
+                        crop.style.display = 'none';
+                        tile.appendChild(crop);
+
+                        const farmR = r - farmTop;
+                        const farmC = c - farmLeft;
+                        tile.dataset.r = farmR;
+                        tile.dataset.c = farmC;
+                        tile.setAttribute('role', 'gridcell');
+                        tile.setAttribute('tabindex', '0');
+                        tile.addEventListener('click', onTileClick);
+                        tile.addEventListener('keydown', (ev) => {
+                            if (ev.key === 'Enter' || ev.key === ' ') {
+                                ev.preventDefault();
+                                onTileClick({ currentTarget: tile });
+                            }
+                        });
+                    }
+
+                    elGrid.appendChild(tile);
+                }
+            }
+
+            elGrid.appendChild(__decorLayerEl);
+            applyLayoutData(EMBEDDED_LAYOUT);
+            renderDecorFromState();
+
+            const weeksToSkip = initialWeek - lastFarmWeek;
+            if (weeksToSkip > 0) {
+                for (let i = 0; i < weeksToSkip; i++) {
+                    skipWeek();
+                }
+                // 处理事件队列
+                processEventQueue();
+            }
+
+            renderAll();
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('orientationchange', handleResize);
+        }
+
+        // 合并处理resize和树木位置计算
+        function handleResize() {
+            recalcTreePositions();
+        }
+
+        function onTileClick(e) {
+            const tile = e.currentTarget;
+            if (tile.dataset.r == null || tile.dataset.c == null) return;
+            const r = Number(tile.dataset.r), c = Number(tile.dataset.c);
+            state.selected = { r, c };
+            openTilePopup(tile, r, c);
+        }
+
+        // --- Rendering ---
+        function renderAll() {
+            elMoney.textContent = state.money;
+
+            const sceneRows = 9, sceneCols = 12;
+            const farmRows = 3, farmCols = 4;
+            const farmTop = Math.floor((sceneRows - farmRows) / 2);
+            const farmLeft = Math.floor((sceneCols - farmCols) / 2);
+            for (let r = 0; r < farmRows; r++) {
+                for (let c = 0; c < farmCols; c++) {
+                    renderTile(r, c, farmTop, farmLeft, sceneCols);
+                }
+            }
+        }
+
+        function stageIndexFor(plot) {
+            if (!plot.planted) return 0;
+            const cfg = CROPS[plot.cropId];
+            const ratio = Math.min(1, plot.maturity / cfg.maturityRequired);
+            return Math.min(6, Math.round(ratio * 6));
+        }
+
+        function renderTile(r, c, farmTop, farmLeft, sceneCols) {
+            const plot = state.grid[r][c];
+            const tile = elGrid.querySelector(`.tile.farm[data-r="${r}"][data-c="${c}"]`);
+            const cropImg = tile.querySelector('.crop');
+            if (plot.planted) {
+                const idx = stageIndexFor(plot);
+                cropImg.src = CROPS[plot.cropId].images[idx];
+                cropImg.style.display = '';
+                cropImg.style.filter = plot.health < 50 ? 'grayscale(1) brightness(0.85)' : 'none';
+                const cfg = CROPS[plot.cropId];
+                const mature = plot.maturity >= cfg.maturityRequired;
+                let glow = tile.querySelector('.crop-glow');
+                if (mature) {
+                    if (!glow) {
+                        glow = document.createElement('img');
+                        glow.className = 'crop-glow';
+                        tile.appendChild(glow);
+                    }
+                    glow.src = cropImg.src;
+                    glow.style.display = '';
+                    if (plot.health < 50) {
+                        glow.classList.add('gray');
+                    } else {
+                        glow.classList.remove('gray');
+                    }
+                } else if (glow) {
+                    glow.style.display = 'none';
+                }
+            } else {
+                cropImg.style.display = 'none';
+                const glow = tile.querySelector('.crop-glow');
+                if (glow) glow.style.display = 'none';
+            }
+        }
+
+        function canPlaceTree3x3(r, c, sceneRows, sceneCols, farmTop, farmLeft, farmRows, farmCols) {
+            if (r - 2 < 0 || c - 1 < 0 || r >= sceneRows || c + 1 >= sceneCols) return false;
+            const spanTop = r - 2;
+            const spanBottom = r;
+            const spanLeft = c - 1;
+            const spanRight = c + 1;
+            const farmBottom = farmTop + farmRows - 1;
+            const farmRight = farmLeft + farmCols - 1;
+            const overlap = !(spanRight < farmLeft || spanLeft > farmRight || spanBottom < farmTop || spanTop > farmBottom);
+            return !overlap;
+        }
+
+        function placeTree3x3(r, c) {
+            const img = document.createElement('img');
+            img.className = 'tree3x3';
+            img.src = Math.random() < 0.5 ? 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/static/tree0.png' : 'https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/static/tree1.png';
+            img.dataset.r = String(r);
+            img.dataset.c = String(c);
+            positionTreeImage(img);
+            if (window.__decorLayerEl) __decorLayerEl.appendChild(img); else elGrid.appendChild(img);
+        }
+
+        // 修复树木位置计算
+        function positionTreeImage(img) {
+            const r = Number(img.dataset.r);
+            const c = Number(img.dataset.c);
+
+            // 直接找到对应位置的tile元素
+            const targetTile = elGrid.querySelector(`.tile[data-scene-r="${r}"][data-scene-c="${c}"]`);
+            if (!targetTile) return;
+
+            const tileRect = targetTile.getBoundingClientRect();
+            const gridRect = elGrid.getBoundingClientRect();
+
+            // 计算相对于grid的偏移
+            const relativeLeft = tileRect.left - gridRect.left;
+            const relativeTop = tileRect.top - gridRect.top;
+
+            // 树木需要向左和向上偏移来覆盖3x3区域
+            const actualTileSize = tileRect.width;
+            img.style.left = (relativeLeft - actualTileSize) + 'px';
+            img.style.top = (relativeTop - actualTileSize * 2) + 'px';
+            img.style.width = (actualTileSize * 3) + 'px';
+            img.style.height = (actualTileSize * 3) + 'px';
+        }
+
+        function recalcTreePositions() {
+            const nodes = (window.__decorLayerEl || elGrid).querySelectorAll('.tree3x3');
+            nodes.forEach(positionTreeImage);
+        }
+
+        function recordTree(r, c) {
+            state.decor.trees.push({ r, c, type: 'tree3x3' });
+        }
+
+        function recordDecor(r, c, kind) {
+            state.decor.singles.push({ r, c, type: kind });
+        }
+
+        // 修改：将事件添加到队列而不是立即显示
+        function addEventToQueue(eventType, title, description) {
+            state.eventQueue.push({ eventType, title, description });
+        }
+
+        // 新增：处理事件队列
+        function processEventQueue() {
+            if (state.eventQueue.length === 0) return;
+
+            const event = state.eventQueue.shift();
+            showEventPopup(event.eventType, event.title, event.description);
+        }
+
+        // 修改事件弹窗显示函数
+        function showEventPopup(eventType, title, description) {
+            const overlay = document.getElementById('eventOverlay');
+            const icon = document.getElementById('eventIcon');
+            const titleEl = document.getElementById('eventTitle');
+            const descEl = document.getElementById('eventDesc');
+
+            const eventConfig = {
+                rain: { icon: '🌧️', class: 'event-rain' },
+                locust: { icon: '🦗', class: 'event-locust' },
+                sunny: { icon: '☀️', class: 'event-sunny' },
+                beast: { icon: '🐺', class: 'event-beast' }
+            };
+
+            const config = eventConfig[eventType] || { icon: '📢', class: '' };
+
+            overlay.className = 'event-overlay ' + config.class;
+
+            icon.textContent = config.icon;
+            titleEl.textContent = title;
+            descEl.innerHTML = description;
+
+            overlay.style.display = 'flex';
+        }
+
+        // 修改确认按钮事件
+        document.getElementById('eventConfirm').addEventListener('click', () => {
+            document.getElementById('eventOverlay').style.display = 'none';
+            // 处理下一个事件
+            processEventQueue();
+        });
+
+        // 修改skipWeek函数
+        function skipWeek() {
+            const eventRoll = Math.random();
+            let eventType = null;
+            let extraMaturity = 1;
+            let extraHealthLoss = 0;
+            let extraQuality = 0;
+
+            if (eventRoll < 0.20) {
+                eventType = 'rain';
+                extraMaturity = 2;
+                addEventToQueue('rain', 'Mưa Thuận Gió Hòa', 'Tuần này mưa thuận gió hòa, cây cối phát triển tốt!<br>Độ chín tất cả cây trồng +1');
+            } else if (eventRoll < 0.30) {
+                eventType = 'locust';
+                extraHealthLoss = 30;
+                addEventToQueue('locust', 'Nạn Châu Chấu', 'Tuần này có nạn châu chấu, cây trồng bị tàn phá!<br>Sức khỏe tất cả cây trồng -30');
+            } else if (eventRoll < 0.40) {
+                eventType = 'sunny';
+                extraQuality = 20;
+                addEventToQueue('sunny', 'Trời Quan Mây Tạnh', 'Tuần này trời quang mây tạnh, hứa hẹn mùa màng bội thu!<br>Chất lượng tất cả cây trồng +20');
+            } else if (eventRoll < 0.45) {
+                eventType = 'beast';
+                const plantedPlots = [];
+                for (let r = 0; r < 3; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        if (state.grid[r][c].planted) {
+                            plantedPlots.push({ r, c });
+                        }
+                    }
+                }
+                if (plantedPlots.length > 0) {
+                    const victim = plantedPlots[Math.floor(Math.random() * plantedPlots.length)];
+                    state.grid[victim.r][victim.c].health = 0;
+                    addEventToQueue('beast', 'Thú Dữ Phá Hoại', `Tuần này có thú dữ xuất hiện, ruộng đồng tan hoang!<br>Cây trồng tại (${victim.r + 1},${victim.c + 1}) đã bị phá hủy`);
+                }
+            }
+
+            const farmRows = 3, farmCols = 4;
+            for (let r = 0; r < farmRows; r++) {
+                for (let c = 0; c < farmCols; c++) {
+                    const plot = state.grid[r][c];
+                    plot.interactedThisWeek = false;
+                    if (!plot.planted) continue;
+
+                    plot.maturity += extraMaturity;
+
+                    plot.health = Math.max(0, plot.health - (10 + Math.floor(Math.random() * 11)) - extraHealthLoss);
+
+                    if (eventType === 'sunny') {
+                        plot.quality += extraQuality;
+                    }
+
+                    if (plot.health <= 0) {
+                        Object.assign(plot, createEmptyPlot());
+                        continue;
+                    }
+
+                    const cfg = CROPS[plot.cropId];
+                    if (plot.maturity > cfg.maturityRequired + 5) {
+                        Object.assign(plot, createEmptyPlot());
+                        continue;
+                    }
+                }
+            }
+
+            renderAll();
+        }
+
+        // --- Actions ---
+        function ensureSelectedPlot() {
+            if (!state.selected) return null;
+            const { r, c } = state.selected;
+            return state.grid[r][c];
+        }
+
+        function withOneInteraction(fn) {
+            const plot = ensureSelectedPlot();
+            if (!plot || !plot.planted || plot.interactedThisWeek) return;
+            fn(plot);
+            plot.interactedThisWeek = true;
+            renderAll();
+            closePopup();
+            const tile = elGrid.querySelector(`.tile.farm[data-r="${state.selected.r}"][data-c="${state.selected.c}"]`);
+            openTilePopup(tile, state.selected.r, state.selected.c);
+        }
+
+        function doWater() {
+            withOneInteraction(plot => {
+                plot.maturity += 1;
+            });
+        }
+
+        function doDeworm() {
+            withOneInteraction(plot => {
+                plot.health = Math.min(100, plot.health + 30 + Math.floor(Math.random() * 21));
+            });
+        }
+
+        function doFertilize() {
+            const cost = 5;
+            if (state.money < cost) {
+                showAlert(`Bón phân cần $${cost}, không đủ tiền!`);
+                return;
+            }
+
+            withOneInteraction(plot => {
+                state.money -= cost;
+                plot.quality += 10 + Math.floor(Math.random() * 21);
+                elMoney.textContent = state.money;
+            });
+        }
+
+        function doHarvest() {
+            const plot = ensureSelectedPlot();
+            if (!plot || !plot.planted) return;
+            const cfg = CROPS[plot.cropId];
+            if (plot.maturity < cfg.maturityRequired) {
+                showAlert('Chưa chín, không thể thu hoạch');
+                return;
+            }
+            if (plot.health < 50) {
+                showAlert('Sức khỏe cây quá thấp (<50), không thể thu hoạch! Hãy diệt sâu trước.');
+                return;
+            }
+            const effectiveQuality = Math.min(100, plot.quality);
+            const price = Math.round(cfg.baseSell * (1 + (effectiveQuality / 100)));
+            state.money += price;
+            Object.assign(plot, createEmptyPlot());
+            renderAll();
+            closePopup();
+        }
+
+        // --- Planting from inventory ---
+        function tryPlant(seedId) {
+            if (!state.selected) return;
+            if (state.inventory[seedId] <= 0) return;
+            const { r, c } = state.selected;
+            const plot = state.grid[r][c];
+            if (plot.planted) return;
+            plot.planted = true;
+            plot.cropId = seedId;
+            plot.maturity = 0;
+            plot.health = 100;
+            plot.quality = 0;
+            plot.interactedThisWeek = false;
+            state.inventory[seedId] -= 1;
+            renderAll();
+            closePopup();
+        }
+
+        // --- Shop ---
+        function openShop() {
+            elShopMoney.textContent = state.money;
+            elShopItems.innerHTML = '';
+            Object.values(CROPS).forEach(cfg => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                const img = document.createElement('img');
+                img.src = cfg.images[6];
+                img.alt = cfg.name;
+                const name = document.createElement('div');
+                name.textContent = cfg.name + ' - Hạt Giống';
+                const price = document.createElement('div');
+                price.className = 'muted';
+                price.textContent = `Giá: $${cfg.basePrice}/bao`;
+                const controls = document.createElement('div');
+                controls.className = 'card-controls';
+
+                const buy1 = document.createElement('button');
+                buy1.textContent = 'Mua 1';
+                const buy5 = document.createElement('button');
+                buy5.textContent = 'Mua 5';
+                const buy10 = document.createElement('button');
+                buy10.textContent = 'Mua 10';
+
+                [buy1, buy5, buy10].forEach((btn, idx) => {
+                    const qty = [1, 5, 10][idx];
+                    btn.addEventListener('click', () => {
+                        const cost = cfg.basePrice * qty;
+                        if (state.money < cost) {
+                            showAlert('Không đủ tiền');
+                            return;
+                        }
+                        state.money -= cost;
+                        state.inventory[cfg.id] += qty;
+                        elShopMoney.textContent = state.money;
+                        renderAll();
+                    });
+                });
+                controls.append(buy1, buy5, buy10);
+                card.append(img, name, price, controls);
+                elShopItems.appendChild(card);
+            });
+            elShopOverlay.style.display = 'flex';
+        }
+
+        function closeShop() {
+            elShopOverlay.style.display = 'none';
+        }
+
+        // 通用UI弹窗
+        const uiOverlay = document.getElementById('uiOverlay');
+        const uiTitle = document.getElementById('uiTitle');
+        const uiBody = document.getElementById('uiBody');
+        const uiActions = document.getElementById('uiActions');
+        const uiOk = document.getElementById('uiOk');
+        const uiCancel = document.getElementById('uiCancel');
+        function showAlert(message, title = 'Thông Báo') {
+            uiTitle.textContent = title;
+            uiBody.innerHTML = message;
+            uiCancel.style.display = 'none';
+            uiOk.textContent = 'Đã Hiểu';
+            // 单按钮居中与黑底白框
+            uiActions.style.gridTemplateColumns = '1fr';
+            uiOk.classList.remove('confirm');
+            uiOk.style.background = '#000';
+            uiOk.style.border = '1px solid #fff';
+            uiOk.style.color = '#fff';
+            uiOk.style.justifySelf = 'center';
+            uiOverlay.style.display = 'flex';
+            const onOk = () => { uiOverlay.style.display = 'none'; cleanup(); };
+            function cleanup() { uiOk.removeEventListener('click', onOk); }
+            uiOk.addEventListener('click', onOk);
+        }
+        function showConfirm(message, title = 'Xác Nhận') {
+            return new Promise(resolve => {
+                uiTitle.textContent = title;
+                uiBody.innerHTML = message;
+                uiCancel.style.display = '';
+                uiOk.textContent = 'Xác Nhận';
+                // 恢复双按钮布局与默认样式
+                uiActions.style.gridTemplateColumns = '1fr 1fr';
+                uiOk.classList.add('confirm');
+                uiOk.style.background = '';
+                uiOk.style.border = '';
+                uiOk.style.color = '';
+                uiOk.style.justifySelf = '';
+                uiOverlay.style.display = 'flex';
+                const onOk = () => { uiOverlay.style.display = 'none'; cleanup(); resolve(true); };
+                const onCancel = () => { uiOverlay.style.display = 'none'; cleanup(); resolve(false); };
+                function cleanup() { uiOk.removeEventListener('click', onOk); uiCancel.removeEventListener('click', onCancel); }
+                uiOk.addEventListener('click', onOk);
+                uiCancel.addEventListener('click', onCancel);
+            });
+        }
+
+        // --- Wire events ---
+        document.getElementById('btnShop').addEventListener('click', openShop);
+        document.getElementById('btnCloseShop').addEventListener('click', closeShop);
+
+        document.getElementById('btnBatchProcess').addEventListener('click', function (e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('batch-dropdown');
+            dropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', function () {
+            const dropdown = document.getElementById('batch-dropdown');
+            dropdown.classList.remove('show');
+        });
+
+        const exitOverlay = document.getElementById('exitOverlay');
+        document.getElementById('btnExitFarm').addEventListener('click', function () {
+            exitOverlay.style.display = 'flex';
+        });
+        document.getElementById('exitCancel').addEventListener('click', function () { exitOverlay.style.display = 'none'; });
+        document.getElementById('exitConfirm').addEventListener('click', function () {
+            const returnData = {
+                type: 'farm-exit',
+                money: state.money,
+                seeds: {
+                    wheat: state.inventory.wheat,
+                    eggplant: state.inventory.eggplant,
+                    melon: state.inventory.melon,
+                    sugarcane: state.inventory.sugarcane
+                },
+                farmGrid: state.grid
+            };
+            try { exitOverlay.style.display = 'none'; } catch (_) { }
+            window.parent.postMessage(returnData, '*');
+        });
+
+        document.getElementById('btnBatchWater').addEventListener('click', function (e) {
+            e.stopPropagation();
+            batchWater();
+            document.getElementById('batch-dropdown').classList.remove('show');
+        });
+
+        document.getElementById('btnBatchDeworm').addEventListener('click', function (e) {
+            e.stopPropagation();
+            batchDeworm();
+            document.getElementById('batch-dropdown').classList.remove('show');
+        });
+
+        document.getElementById('btnBatchFertilize').addEventListener('click', function (e) {
+            e.stopPropagation();
+            batchFertilize();
+            document.getElementById('batch-dropdown').classList.remove('show');
+        });
+
+        // --- Kickoff ---
+        initGrid();
+        renderAll();
+
+        // --- Batch operations ---
+        function batchDeworm() {
+            let count = 0;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const plot = state.grid[r][c];
+                    if (plot.planted && plot.health < 50 && !plot.interactedThisWeek) {
+                        plot.health = Math.min(100, plot.health + 30 + Math.floor(Math.random() * 21));
+                        plot.interactedThisWeek = true;
+                        count++;
+                    }
+                }
+            }
+            renderAll();
+            if (count > 0) {
+                showAlert(`Đã diệt sâu cho ${count} cây`);
+            } else {
+                showAlert('Không có cây nào cần diệt sâu');
+            }
+        }
+
+        function batchWater() {
+            let count = 0;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const plot = state.grid[r][c];
+                    if (plot.planted && !plot.interactedThisWeek) {
+                        plot.maturity += 1;
+                        plot.interactedThisWeek = true;
+                        count++;
+                    }
+                }
+            }
+            renderAll();
+            if (count > 0) {
+                showAlert(`Đã tưới nước cho ${count} cây`);
+            } else {
+                showAlert('Không có cây nào cần tưới nước');
+            }
+        }
+
+        function batchFertilize() {
+            let count = 0;
+            let eligiblePlots = [];
+
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const plot = state.grid[r][c];
+                    if (plot.planted && !plot.interactedThisWeek) {
+                        eligiblePlots.push(plot);
+                    }
+                }
+            }
+
+            const cost = 5 * eligiblePlots.length;
+
+            if (eligiblePlots.length === 0) {
+                showAlert('Không có cây nào cần bón phân');
+                return;
+            }
+
+            if (state.money < cost) {
+                showAlert(`Bón phân hết cần $${cost}, không đủ tiền!`);
+                return;
+            }
+
+            state.money -= cost;
+            eligiblePlots.forEach(plot => {
+                plot.quality += 10 + Math.floor(Math.random() * 21);
+                plot.interactedThisWeek = true;
+                count++;
+            });
+
+            renderAll();
+            showAlert(`Đã bón phân cho ${count} cây, tốn $${cost}`);
+        }
+
+        function applyLayoutData(data) {
+            if (!data || !data.decor) return;
+            state.decor.trees = (data.decor.trees || []).map(t => ({ r: t.r, c: t.c, type: t.type || 'tree3x3' }));
+            state.decor.singles = (data.decor.singles || []).map(s => ({ r: s.r, c: s.c, type: s.type }));
+        }
+
+        function renderDecorFromState() {
+            if (window.__decorLayerEl) __decorLayerEl.innerHTML = '';
+            state.decor.singles.forEach(({ r, c, type }) => {
+                const tile = elGrid.querySelector(`.tile[data-scene-r="${r}"][data-scene-c="${c}"]`);
+                if (!tile) return;
+                const decor = document.createElement('img');
+                decor.className = 'decor';
+                decor.src = `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@ca90b6cded3e3d3fa1723d58a24fdb01a5750b74/assets/image/static/${type}.png`;
+                tile.appendChild(decor);
+            });
+            state.decor.trees.forEach(({ r, c }) => placeTree3x3(r, c));
+        }
+
+        // --- Popup helpers ---
+        const popupRoot = document.getElementById('popup');
+
+        function closePopup() {
+            popupRoot.style.display = 'none';
+            popupRoot.innerHTML = '';
+            document.removeEventListener('keydown', escCloseHandler);
+            document.removeEventListener('click', outsideClickHandler, true);
+            window.removeEventListener('resize', handleViewportChange);
+            window.removeEventListener('scroll', handleViewportChange, true);
+        }
+
+        function escCloseHandler(ev) {
+            if (ev.key === 'Escape') closePopup();
+        }
+
+        function outsideClickHandler(ev) {
+            if (!popupRoot.contains(ev.target)) closePopup();
+        }
+
+        function handleViewportChange() {
+            clampPopupToViewport();
+            recalcTreePositions();
+        }
+
+        function openTilePopup(tile, r, c) {
+            const plot = state.grid[r][c];
+            const rect = tile.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height + 6;
+            if (!plot.planted) {
+                openSeedPopup({ x, y, r, c });
+            } else {
+                openActionPopup({ x, y, r, c });
+            }
+        }
+
+        function openSeedPopup({ x, y, r, c }) {
+            const content = document.createElement('div');
+            content.className = 'popover';
+            content.innerHTML = `
+        <div class="body">
+          <div class="choices">
+            ${seedButtonHTML('wheat')}
+            ${seedButtonHTML('melon')}
+            ${seedButtonHTML('eggplant')}
+            ${seedButtonHTML('sugarcane')}
+          </div>
+          <div class="hint">Nhấn vào hạt giống để gieo trồng</div>
+        </div>
+      `;
+            showPopupAt(content, x, y);
+            bindSeedButtons();
+        }
+
+        function openActionPopup({ x, y, r, c }) {
+            const plot = state.grid[r][c];
+            const cfg = plot.planted ? CROPS[plot.cropId] : null;
+            const canInteract = plot.planted && !plot.interactedThisWeek;
+            const canHarvest = plot.planted && plot.maturity >= cfg.maturityRequired;
+
+            let hint = '';
+            if (plot.interactedThisWeek) {
+                hint = '<div class="hint">Tuần này đã tương tác với cây này rồi</div>';
+            } else if (!canHarvest && plot.maturity < cfg.maturityRequired) {
+                hint = '<div class="hint">Cây chưa chín</div>';
+            }
+
+            const content = document.createElement('div');
+            content.className = 'popover';
+            content.innerHTML = `
+        <div class="body">
+          ${progressBarsHTML(plot)}
+          <div class="actions">
+            <button id="pActWater" ${!canInteract ? 'disabled' : ''}>Tưới Nước (+1 Độ Chín)</button>
+            <button id="pActDeworm" ${!canInteract ? 'disabled' : ''}>Diệt Sâu (+30~50 Sức Khỏe)</button>
+            <button id="pActFertilize" ${!canInteract ? 'disabled' : ''}>Bón Phân (+10~30 Chất Lượng, $5)</button>
+            <button id="pActHarvest" class="primary" ${!canInteract || !canHarvest ? 'disabled' : ''}>Thu Hoạch</button>
+          </div>
+          ${hint}
+        </div>
+      `;
+            showPopupAt(content, x, y);
+            document.getElementById('pActWater').addEventListener('click', () => { doWater(); });
+            document.getElementById('pActDeworm').addEventListener('click', () => { doDeworm(); });
+            document.getElementById('pActFertilize').addEventListener('click', () => { doFertilize(); });
+            document.getElementById('pActHarvest').addEventListener('click', () => { doHarvest(); });
+        }
+
+        function seedButtonHTML(id) {
+            const cfg = CROPS[id];
+            const qty = state.inventory[id];
+            const disabled = qty <= 0 ? 'disabled' : '';
+            return `
+        <button class="seed-btn" data-seed="${id}" ${disabled}>
+          <img src="${cfg.images[6]}" alt="${cfg.name}" />
+          <span>${cfg.name}</span>
+          <small>×${qty}</small>
+        </button>
+      `;
+        }
+
+        function bindSeedButtons() {
+            popupRoot.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.addEventListener('click', () => tryPlant(btn.dataset.seed));
+            });
+        }
+
+        function progressBarsHTML(plot) {
+            if (!plot || !plot.planted) {
+                return `<div class="muted">Không có dữ liệu cây trồng</div>`;
+            }
+            const cfg = CROPS[plot.cropId];
+            const mRatio = Math.min(1, plot.maturity / cfg.maturityRequired);
+            const hRatio = Math.min(1, plot.health / 100);
+            const qRatio = Math.min(1, plot.quality / 100);
+
+            const overripeWarning = plot.maturity > cfg.maturityRequired ?
+                `<div class="hint" style="color: #d9534f;">Cảnh báo: Độ chín ${plot.maturity}/${cfg.maturityRequired + 5}, sắp thối rữa!</div>` : '';
+
+            return `
+        <div class="bar-row"><small>Độ Chín</small><div class="bar"><span style="width:${Math.round(mRatio * 100)}%"></span></div><small>${plot.maturity}/${cfg.maturityRequired}</small></div>
+        <div class="bar-row"><small>Sức Khỏe</small><div class="bar"><span style="width:${Math.round(hRatio * 100)}%"></span></div><small>${plot.health}</small></div>
+        <div class="bar-row"><small>Chất Lượng</small><div class="bar"><span style="width:${Math.round(qRatio * 100)}%"></span></div><small>${plot.quality}</small></div>
+        ${overripeWarning}
+      `;
+        }
+
+        function showPopupAt(contentEl, x, y) {
+            popupRoot.innerHTML = '';
+            popupRoot.appendChild(contentEl);
+            popupRoot.style.display = 'block';
+            popupRoot.style.visibility = 'hidden';
+            popupRoot.style.left = `${x}px`;
+            popupRoot.style.top = `${y}px`;
+            requestAnimationFrame(() => {
+                clampPopupToViewport(x, y);
+                popupRoot.style.visibility = 'visible';
+            });
+            document.addEventListener('keydown', escCloseHandler);
+            setTimeout(() => {
+                document.addEventListener('click', outsideClickHandler, true);
+            }, 0);
+            window.addEventListener('resize', handleViewportChange);
+            window.addEventListener('scroll', handleViewportChange, true);
+        }
+
+        function clampPopupToViewport(x, y) {
+            const pad = 8;
+            const w = popupRoot.offsetWidth;
+            const h = popupRoot.offsetHeight;
+            let left = (x ?? parseFloat(popupRoot.style.left)) - w / 2;
+            let top = (y ?? parseFloat(popupRoot.style.top));
+            if (top + h + pad > window.innerHeight) {
+                top = top - h - 16;
+            }
+            left = Math.max(pad, Math.min(window.innerWidth - w - pad, left));
+            top = Math.max(pad, Math.min(window.innerHeight - h - pad, top));
+            popupRoot.style.left = `${Math.round(left)}px`;
+            popupRoot.style.top = `${Math.round(top)}px`;
+            recalcTreePositions();
+        }
+    </script>
+</body>
+
+</html>

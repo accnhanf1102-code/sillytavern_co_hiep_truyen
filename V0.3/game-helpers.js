@@ -498,7 +498,8 @@ function showNpcInfo(npcId, location, event) {
 
     // 获取切磋奖励信息
     const reward = npcSparRewards[npcId];
-    const rewardText = reward ? `(${reward.type}+${reward.value})` : '';
+    const displayType = reward ? translateReward(reward.type) : '';
+    const rewardText = reward ? `(${displayType}+${reward.value})` : '';
 
     // 判断UI风格：古风UI(uiStyle=0) 使用框选叠加层，扁平化UI(uiStyle=1) 使用原有弹窗
     if (typeof uiStyle !== 'undefined' && uiStyle === 0) {
@@ -515,7 +516,8 @@ function showNpcSelectionOverlay(npcId, location, event) {
     const npc = npcs[npcId];
     const hasSparred = npcSparred[npcId];
     const reward = npcSparRewards[npcId];
-    const rewardText = reward ? `(${reward.type}+${reward.value})` : '';
+    const displayType = reward ? translateReward(reward.type) : '';
+    const rewardText = reward ? `(${displayType}+${reward.value})` : '';
 
     // 获取送礼状态
     const hasGifted = npcGiftGiven[npcId];
@@ -777,7 +779,8 @@ function showNpcInfoPopup(npcId, location, event) {
 
     // 获取切磋奖励信息
     const reward = npcSparRewards[npcId];
-    const rewardText = reward ? `(${reward.type}+${reward.value})` : '';
+    const displayType = reward ? translateReward(reward.type) : '';
+    const rewardText = reward ? `(${displayType}+${reward.value})` : '';
 
     popup.innerHTML = `
         <div class="npc-info-name">${npc.name}</div>

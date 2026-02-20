@@ -136,7 +136,8 @@ function showBlackjackGame() {
     const modal = document.getElementById('blackjack-modal');
     const iframe = document.getElementById('blackjack-iframe');
 
-    const gameUrl = `https://Ji-Haitang.github.io/char_card_1/blackjack.html?money=${playerStats.金钱}`;
+    //const gameUrl = `https://Ji-Haitang.github.io/char_card_1/blackjack.html?money=${playerStats.金钱}`;
+    const gameUrl = `blackjack.html?money=${playerStats.金钱}`;
     iframe.src = gameUrl;
 
     modal.style.display = 'block';
@@ -200,8 +201,8 @@ function showBattleGame(battleData) {
         ...itemCounts
     });
 
-    const gameUrl = `https://Ji-Haitang.github.io/char_card_1/turn-based-battle.html?${params.toString()}`;
-    // const gameUrl = `turn-based-battle.html?${params.toString()}`;
+    //const gameUrl = `https://Ji-Haitang.github.io/char_card_1/turn-based-battle.html?${params.toString()}`;
+    const gameUrl = `turn-based-battle.html?${params.toString()}`;
     iframe.src = gameUrl;
 
     modal.style.display = 'block';
@@ -229,8 +230,8 @@ function showFarmGame() {
         ...seedCounts
     });
 
-    const gameUrl = `https://Ji-Haitang.github.io/char_card_1/farm.html?${params.toString()}`;
-    // const gameUrl = `farm.html?${params.toString()}`;
+    //const gameUrl = `https://Ji-Haitang.github.io/char_card_1/farm.html?${params.toString()}`;
+    const gameUrl = `farm.html?${params.toString()}`;
     iframe.src = gameUrl;
 
     modal.style.display = 'block';
@@ -285,8 +286,8 @@ function showAlchemyGame() {
     });
 
     // 使用本地URL进行调试
-    const gameUrl = `https://Ji-Haitang.github.io/char_card_1/alchemy.html?${params.toString()}`;
-    //const gameUrl = `alchemy.html?${params.toString()}`;
+    //const gameUrl = `https://Ji-Haitang.github.io/char_card_1/alchemy.html?${params.toString()}`;
+    const gameUrl = `alchemy.html?${params.toString()}`;
 
     console.log('[炼丹] 完整URL:', gameUrl);
 

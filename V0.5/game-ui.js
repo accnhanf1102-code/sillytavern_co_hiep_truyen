@@ -587,6 +587,7 @@ function updateStoryDisplay() {
                 const sceneName = pageData.scene; // 例如 演武场 / 山门 / 公田…
                 // https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/{{当前mapLocation}}/{{昼or夜}}/{{pageData.scene}}.jpg
                 const sceneUrl = `https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/${locName}/${dayNightCN}/${sceneName}.jpg`;
+                console.log(`[loading loc] https://cdn.jsdelivr.net/gh/Ji-Haitang/char_card_1@main/img/location/scene/${locName}/${dayNightCN}/${sceneName}.jpg`);
                 sceneImg.src = sceneUrl;
                 sceneImg.alt = `${locName}-${dayNightCN}-${sceneName}`;
                 try { window.__lastValidSceneUrl = sceneUrl; } catch (e) { }
@@ -623,6 +624,7 @@ function updateStoryDisplay() {
                     const emoUrl = `https://cdn.jsdelivr.net/gh/Ji-Haitang-setu/card1_setu@main/${pageData.npc}/表情差分/${emotion}.png`;
                     emotionImg.src = emoUrl;
                     emotionImg.alt = `${pageData.npc}-${emotion}`;
+                    console.log(`[loading emo] https://cdn.jsdelivr.net/gh/Ji-Haitang-setu/card1_setu@main/${pageData.npc}/表情差分/${emotion}.png`);
                     try { window.__lastValidNpcEmotionUrl = emoUrl; } catch (e) { }
 
                     // // 404 回退：用原始 NPC 立绘
@@ -647,6 +649,7 @@ function updateStoryDisplay() {
                 const cgUrl = `https://cdn.jsdelivr.net/gh/Ji-Haitang-setu/card1_setu@main/${pageData.npc}/色图/${pageData.cg}${randIdx}.png`;
                 cgImg.src = cgUrl;
                 cgImg.alt = `${pageData.npc}-${pageData.cg}${randIdx}`;
+                console.log(`[loading cg] https://cdn.jsdelivr.net/gh/Ji-Haitang-setu/card1_setu@main/${pageData.npc}/色图/${pageData.cg}${randIdx}.png`);
                 try { window.__lastValidCgUrl = cgUrl; } catch (e) { }
 
                 // // 404 时直接隐藏本层
